@@ -1,0 +1,108 @@
+{
+  "source": "data\\raw\\27002580PAS_SE_SE.laz",
+  "tile": {
+    "las_version": "1.4",
+    "point_format": "6",
+    "tile_point_count": 8628766,
+    "bounds": {
+      "min": [
+        2587500.0,
+        259999.99000000002,
+        487.1
+      ],
+      "max": [
+        2589999.99,
+        262499.99,
+        694.97
+      ]
+    },
+    "scales": [
+      0.01,
+      0.01,
+      0.01
+    ]
+  },
+  "context_point_count": 165620,
+  "parcel_point_count": 30359,
+  "parcel_all_return_density_per_sq_ft": 1.34,
+  "classification_histogram_context": {
+    "1": 60375,
+    "2": 105221,
+    "7": 16,
+    "18": 8
+  },
+  "return_number_histogram_context": {
+    "1": 131880,
+    "2": 26078,
+    "3": 6680,
+    "4": 906,
+    "5": 73,
+    "6": 3
+  },
+  "parcel_height_percentiles_ft": {
+    "1": -0.02,
+    "5": -0.01,
+    "50": 0.01,
+    "95": 46.05,
+    "99": 59.14,
+    "99.9": 67.7
+  },
+  "candidate_rule": "actual unclassified returns within a 1.25-ft radius in at least four distinct one-foot slices from 1-8 ft; linked stem center must remain inside the parcel",
+  "stem_candidates": [
+    {
+      "candidate_id": "SC01",
+      "local_x_ft": -79.64,
+      "local_z_ft": 14.36,
+      "supporting_height_slices": 4,
+      "low_return_count_within_1_5_ft": 6,
+      "supported_return_count": 1,
+      "status": "remote_candidate_not_accepted"
+    },
+    {
+      "candidate_id": "SC02",
+      "local_x_ft": 38.31,
+      "local_z_ft": -21.09,
+      "supporting_height_slices": 4,
+      "low_return_count_within_1_5_ft": 8,
+      "supported_return_count": 2,
+      "status": "remote_candidate_not_accepted"
+    },
+    {
+      "candidate_id": "SC03",
+      "local_x_ft": 43.52,
+      "local_z_ft": -13.56,
+      "supporting_height_slices": 5,
+      "low_return_count_within_1_5_ft": 7,
+      "supported_return_count": 2,
+      "status": "remote_candidate_not_accepted"
+    },
+    {
+      "candidate_id": "SC04",
+      "local_x_ft": 44.94,
+      "local_z_ft": 35.35,
+      "supporting_height_slices": 4,
+      "low_return_count_within_1_5_ft": 4,
+      "supported_return_count": 1,
+      "status": "remote_candidate_not_accepted"
+    },
+    {
+      "candidate_id": "SC05",
+      "local_x_ft": 74.72,
+      "local_z_ft": -24.66,
+      "supporting_height_slices": 4,
+      "low_return_count_within_1_5_ft": 8,
+      "supported_return_count": 3,
+      "status": "remote_candidate_not_accepted"
+    },
+    {
+      "candidate_id": "SC06",
+      "local_x_ft": 81.41,
+      "local_z_ft": -26.56,
+      "supporting_height_slices": 5,
+      "low_return_count_within_1_5_ft": 7,
+      "supported_return_count": 1,
+      "status": "remote_candidate_not_accepted"
+    }
+  ],
+  "warning": "Candidates are not accepted trees. Poles, branches, shrubs, fences, and building-adjacent artifacts require manual point-cloud and field verification."
+}

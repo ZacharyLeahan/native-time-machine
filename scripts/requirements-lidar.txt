@@ -1,0 +1,7 @@
+laspy==2.7.0
+lazrs==0.8.2
+matplotlib==3.11.2
+numpy==2.5.4
+requests==2.34.2
+scikit-image==0.26.0
+scipy==1.18.1
