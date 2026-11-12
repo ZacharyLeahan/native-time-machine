@@ -16,7 +16,11 @@ for path in sorted(source.glob("*.png")):
 if not frames:
     raise SystemExit("No demo frames found")
 
-durations = [1100, 1100, 800, 800, 900, 1000, 650, 650, 800, 1400]
+durations = [1100, 1100, 800, 800, 900, 1000]
+growth_count = max(0, len(frames) - len(durations))
+if growth_count:
+    durations.extend([420] * max(0, growth_count - 1))
+    durations.append(1500)
 frames[0].save(
     output,
     save_all=True,

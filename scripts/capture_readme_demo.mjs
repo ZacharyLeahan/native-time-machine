@@ -79,11 +79,17 @@ try{
   await evaluate(setRange('Time of day',1140));await capture('05-evening-sun',650)
   await evaluate(`document.querySelector('[aria-label="Minimize solar controls"]').click();[...document.querySelectorAll('button')].find((button)=>button.textContent.trim()==='Plan').click()`)
   await capture('06-plan-view',800)
-  await evaluate(setRange('Simulation year',0));await capture('07-young-design',500)
-  await evaluate(setRange('Simulation year',25));await capture('08-growing-design',500)
-  await evaluate(setRange('Simulation year',50));await capture('09-mature-design',500)
-  await evaluate(`[...document.querySelectorAll('button')].find((button)=>button.textContent.includes('3D Garden')).click()`)
-  await capture('10-mature-3d',900)
+  await evaluate(`document.querySelector('[aria-label="Expand solar controls"]').click()`)
+  await wait(150)
+  await evaluate(setRange('Time of day',785))
+  await evaluate(`document.querySelector('[aria-label="Minimize solar controls"]').click();[...document.querySelectorAll('button')].find((button)=>button.textContent.includes('3D Garden')).click()`)
+  await wait(700)
+  const growthYears=[0,5,10,15,20,25,30,35,40,45,50]
+  for(let index=0;index<growthYears.length;index++){
+    const year=growthYears[index]
+    await evaluate(setRange('Simulation year',year))
+    await capture(`${String(index+7).padStart(2,'0')}-growth-year-${String(year).padStart(2,'0')}`,index===0?650:300)
+  }
   socket.close()
 }finally{
   if(chrome&&!chrome.killed){chrome.kill();await Promise.race([once(chrome,'exit'),new Promise((resolve)=>setTimeout(resolve,1500))])}
