@@ -8,8 +8,8 @@ import { saveDesign } from './persistence/design'
 import { usePlannerStore } from './store/usePlannerStore'
 
 export default function App(){
-  const design=usePlannerStore((s)=>s.design),notice=usePlannerStore((s)=>s.notice),clear=usePlannerStore((s)=>s.clearNotice)
+  const design=usePlannerStore((s)=>s.design),notice=usePlannerStore((s)=>s.notice),clear=usePlannerStore((s)=>s.clearNotice),viewMode=usePlannerStore((s)=>s.viewMode)
   useEffect(()=>{const id=setTimeout(()=>saveDesign(design),350);return()=>clearTimeout(id)},[design])
   useEffect(()=>{if(!notice)return;const id=setTimeout(clear,2600);return()=>clearTimeout(id)},[notice,clear])
-  return <div className="app-shell"><Toolbar/><main className="workspace"><CatalogPanel/><PlannerCanvas/><DetailsPanel/></main><Timeline/>{notice&&<div className="toast">{notice}</div>}</div>
+  return <div className={`app-shell ${viewMode==='walk'?'walk-active':''}`}><Toolbar/><main className={`workspace ${viewMode==='walk'?'walk-mode':''}`}><CatalogPanel/><PlannerCanvas/><DetailsPanel/></main><Timeline/>{notice&&<div className="toast">{notice}</div>}</div>
 }

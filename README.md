@@ -10,6 +10,7 @@ Native Time Machine is a browser-based landscape planner that lets homeowners pl
 - A dimensional house generated from the county's 2015 building footprint
 - A clean property baseline with no unverified existing trees preloaded
 - A default orbitable perspective garden with sky, lighting, shadows, volumetric plants, and visible vertical growth
+- A ground-level Walk mode with pointer-lock mouse look, keyboard movement, sprinting, collision boundaries, and Xbox-style dual-stick controls
 - Date-specific solar playback driven by NREL's Solar Position Algorithm, with live azimuth, elevation, sunrise, solar noon, sunset, a visible sun path, and roof shadows
 - An optional orthographic Plan view with a 5 ft measurement grid, zoom, pan, planting, selection, and drag-to-move
 - Searchable catalog of ten native trees, shrubs, and perennials
@@ -51,6 +52,10 @@ npm run build
 Use the solar console in the lower-right corner to choose a date, scrub the local time, or press Play to watch the sun and modeled shadows cross the property. The default representative day is July 15; the `July 15` button restores that midsummer baseline.
 
 In 3D Garden view, left-drag orbits, right-drag pans, and the mouse wheel zooms. Switch to Plan for precise overhead positioning. All internal property and plant coordinates use feet in a right-handed Three.js scene (`x` east/west, `z` north/south, `y` vertical).
+
+### Walk mode
+
+Choose **Walk** in the top view switch to explore the landscape at a 5.6-foot eye height. Click the 3D view to capture the mouse (or drag to look if Pointer Lock is unavailable); move with **WASD** or the arrow keys, hold **Shift** to sprint, press **Esc** to release the mouse, and press **Q** to exit. With a standard Xbox-style gamepad, use the left stick to move, the right stick to look, press the left stick to sprint, and press **B** to exit. Walk mode stays inside the parcel, blocks the house and modeled trunks, and allows movement beneath tree canopies.
 
 ## Architecture
 

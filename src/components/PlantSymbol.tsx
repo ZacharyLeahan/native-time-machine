@@ -65,6 +65,6 @@ export function PlantSymbol({ plant, onDragStart }: Props) {
       {isPerennial?<PerennialModel height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>:isShrub?<ShrubModel height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>:<TreeModel species={species} height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>} 
       <mesh position={[0,.05,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[Math.max(radius-.14,.2),radius,48]}/><meshBasicMaterial color={selected?'#f8da65':plant.origin?.startsWith('existing-')?'#d2b450':'#365e42'} transparent opacity={selected ? .95 : plant.origin?.startsWith('existing-') ? .42 : .22}/></mesh>
     </>}
-    {selected&&<Html center position={[0,viewMode==='garden'?dimensions.heightFt+2:.7,0]} style={{pointerEvents:'none'}}><div className="plant-label"><strong>{species.commonName}</strong><span>{dimensions.widthFt.toFixed(0)} ft canopy · {dimensions.heightFt.toFixed(0)} ft tall</span></div></Html>}
+    {selected&&viewMode!=='walk'&&<Html center position={[0,viewMode==='planner'?.7:dimensions.heightFt+2,0]} style={{pointerEvents:'none'}}><div className="plant-label"><strong>{species.commonName}</strong><span>{dimensions.widthFt.toFixed(0)} ft canopy · {dimensions.heightFt.toFixed(0)} ft tall</span></div></Html>}
   </group>
 }

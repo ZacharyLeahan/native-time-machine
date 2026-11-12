@@ -60,7 +60,7 @@ try{
   await wait(2200)
   const demoDesign={version:8,siteId:'15-pickwick-ln-malvern-pa',name:'Native Time Machine demo',widthFt:210,depthFt:210,plants:[
     {id:'demo-oak',speciesId:'white-oak',xFt:28,zFt:22,plantedYear:0,origin:'user'},
-    {id:'demo-redbud',speciesId:'eastern-redbud',xFt:-28,zFt:-4,plantedYear:0,origin:'user'},
+    {id:'demo-redbud',speciesId:'eastern-redbud',xFt:-10,zFt:-78,plantedYear:0,origin:'user'},
     {id:'demo-hazelnut',speciesId:'american-hazelnut',xFt:-5,zFt:42,plantedYear:0,origin:'user'},
   ]}
   await evaluate(`localStorage.setItem('landscape-time-machine/design/v8',${JSON.stringify(JSON.stringify(demoDesign))});location.reload()`)
@@ -90,6 +90,8 @@ try{
     await evaluate(setRange('Simulation year',year))
     await capture(`${String(index+7).padStart(2,'0')}-growth-year-${String(year).padStart(2,'0')}`,index===0?650:300)
   }
+  await evaluate(`[...document.querySelectorAll('button')].find((button)=>button.textContent.trim()==='Walk').click()`)
+  await capture('18-walk-mode',900)
   socket.close()
 }finally{
   if(chrome&&!chrome.killed){chrome.kill();await Promise.race([once(chrome,'exit'),new Promise((resolve)=>setTimeout(resolve,1500))])}

@@ -4,7 +4,7 @@ import { isInsidePickwickProperty } from '../data/pickwickProperty'
 import { defaultDesign, loadDesign, parseDesign, saveDesign } from '../persistence/design'
 import type { PlantInstance, PropertyDesign, Season } from '../types'
 
-export type ViewMode = 'garden' | 'planner'
+export type ViewMode = 'garden' | 'planner' | 'walk'
 
 interface PlannerState {
   design: PropertyDesign; year: number; season: Season; viewMode: ViewMode; selectedPlantId: string | null; armedSpeciesId: string | null; cameraResetKey: number; notice: string | null
@@ -17,7 +17,7 @@ const initialDesign = typeof localStorage === 'undefined' ? defaultDesign : load
 
 export const usePlannerStore = create<PlannerState>((set, get) => ({
   design: initialDesign, year: 10, season: 'summer', viewMode: 'garden', selectedPlantId: null, armedSpeciesId: null, cameraResetKey: 0, notice: null,
-  setYear: (year) => set({year}), setSeason: (season) => set({season}), setViewMode:(viewMode)=>set({viewMode,cameraResetKey:get().cameraResetKey+1}), armSpecies: (armedSpeciesId) => set({armedSpeciesId, selectedPlantId:null}), selectPlant:(selectedPlantId)=>set({selectedPlantId,armedSpeciesId:null}),
+  setYear: (year) => set({year}), setSeason: (season) => set({season}), setViewMode:(viewMode)=>set({viewMode,cameraResetKey:get().cameraResetKey+1,armedSpeciesId:viewMode==='walk'?null:get().armedSpeciesId}), armSpecies: (armedSpeciesId) => set({armedSpeciesId, selectedPlantId:null}), selectPlant:(selectedPlantId)=>set({selectedPlantId,armedSpeciesId:null}),
   placePlant:(speciesId,xFt,zFt)=>set((state)=>{ if(!catalogById.has(speciesId)||!isInsidePickwickProperty({xFt,zFt})) return state; const plant:PlantInstance={id:crypto.randomUUID(),speciesId,xFt,zFt,plantedYear:0}; return {design:{...state.design,plants:[...state.design.plants,plant]},selectedPlantId:plant.id,armedSpeciesId:null} }),
   movePlant:(id,xFt,zFt)=>set((state)=>{if(!isInsidePickwickProperty({xFt,zFt}))return state;return {design:{...state.design,plants:state.design.plants.map((plant)=>plant.id===id?{...plant,xFt,zFt}:plant)}}}),
   deletePlant:(id)=>set((state)=>({design:{...state.design,plants:state.design.plants.filter((p)=>p.id!==id)},selectedPlantId:state.selectedPlantId===id?null:state.selectedPlantId})),
