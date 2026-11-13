@@ -1,6 +1,12 @@
 import { describe,it,expect } from 'vitest'
 import { cameraShot } from './cameraShots'
 describe('camera framing',()=>{
+  it('keeps camera coordinates finite during zero-size resize transitions',()=>{
+    for(const aspect of [0,NaN,Infinity,-1]){
+      const shot=cameraShot('front',undefined,aspect)
+      expect(shot.position.every(Number.isFinite)).toBe(true)
+    }
+  })
   it('places opposite views on opposite sides with a shared target',()=>{
     const front=cameraShot('front'),back=cameraShot('back'),left=cameraShot('left'),right=cameraShot('right')
     expect(front.position[2]).toBeGreaterThan(0);expect(back.position[2]).toBeLessThan(0)

@@ -14,7 +14,7 @@ export default function App(){
   useEffect(()=>{const id=setTimeout(()=>usePlannerStore.getState().autosave(),350);return()=>clearTimeout(id)},[design])
   useEffect(()=>{
     const shortcut=(event:KeyboardEvent)=>{
-      if(event.target instanceof HTMLElement && (event.target.matches('input,textarea,select')||event.target.isContentEditable))return
+      if(event.target instanceof HTMLElement && (event.target.closest('dialog[open],input,textarea,select')||event.target.isContentEditable))return
       if(!(event.ctrlKey||event.metaKey))return
       if(event.key.toLowerCase()==='z'){event.preventDefault();usePlannerStore.getState()[event.shiftKey?'redo':'undo']()}
       if(event.key.toLowerCase()==='y'){event.preventDefault();usePlannerStore.getState().redo()}

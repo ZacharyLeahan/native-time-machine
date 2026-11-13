@@ -7,3 +7,19 @@
 .summary-focus{display:block;margin-top:5px;border:1px solid #cbd8c2;background:#edf3e6;padding:4px 8px;border-radius:5px;color:#29432e;font-size:11px}
 @media(min-width:761px) and (max-width:1450px){.toolbar .brand{min-width:160px}.toolbar-actions>button>span{display:none}.toolbar .seasons button{padding-left:9px;padding-right:9px}.toolbar .toolbar-actions{gap:5px}.toolbar{gap:8px;padding:0 16px}.toolbar .view-switch button{padding-left:8px;padding-right:8px}}
 @media(max-width:760px){.planting-summary{padding:15px}.summary-toggle{padding:7px}.favorites-tray{margin-top:8px}}
+@media(min-width:761px) and (max-width:1100px){
+  .toolbar .brand{min-width:0;gap:8px}.toolbar .brand>span:last-child{display:none}
+  .app-shell .workspace:not(.walk-mode){grid-template-columns:235px minmax(0,1fr) 230px}
+  .canvas-wrap .imagery-control{max-width:calc(100% - 24px)}.canvas-wrap .imagery-control>span{display:none}
+  .canvas-wrap .imagery-control button{min-width:0}
+}
+.toolbar,.workspace,.timeline{min-width:0}
+@media(max-width:760px){
+  .workspace:not(.walk-mode){height:auto;grid-template-rows:350px 460px 240px}
+  .favorites-tray{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 6px;padding:8px;margin-bottom:8px}
+  .favorites-tray>div:first-child,.favorites-tray>p{grid-column:1/-1}
+  .favorites-tray>p{margin:0}.favorite-item{min-width:0;margin-top:0}
+  .favorite-item button:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .favorite-item button{min-height:30px}.favorite-item button:last-child{min-width:30px}
+  .catalog-entry{flex:0 0 210px}.catalog-entry .catalog-card{min-width:0}
+}

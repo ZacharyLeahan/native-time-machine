@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/immutability -- R3F camera controls intentionally mutate Three.js camera and controls. */
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Vector3 } from 'three'
+import { PerspectiveCamera, Vector3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { usePlannerStore } from '../store/usePlannerStore'
 import { cameraShot, type CameraPreset } from '../simulation/cameraShots'
@@ -24,10 +25,14 @@ export function CameraShortcutsRig() {
     const state=usePlannerStore.getState(),plant=state.design.plants.find(p=>p.id===state.selectedPlantId),species=plant?catalogById.get(plant.speciesId):undefined
     const dims=plant&&species?dimensionsForPlantAtYear(species,plant,state.year):null
     pending.current=cameraShot(command.preset,plant&&dims?{x:plant.xFt,y:groundHeight(plant.xFt,plant.zFt),z:-plant.zFt,height:dims.heightFt,width:dims.widthFt}:undefined,size.width/size.height)
-    const cancel=()=>{pending.current=null}
+    const shot=pending.current,distance=Math.hypot(...shot.position.map((value,index)=>value-shot.target[index]))
+    // Portrait framing can require more distance than the normal orbit limit.
+    orbit.maxDistance=Math.max(orbit.maxDistance,distance+1)
+    if(camera instanceof PerspectiveCamera){camera.far=Math.max(camera.far,distance+300);camera.updateProjectionMatrix()}
+    const cancel=()=>{pending.current=null;usePlannerStore.setState({cameraShortcut:null})}
     orbit.addEventListener('start',cancel)
     return()=>{pending.current=null;orbit.removeEventListener('start',cancel)}
-  },[command,reset,controls,size.width,size.height])
+  },[command,reset,camera,controls,size.width,size.height])
   useFrame((_,delta)=>{
     const shot=pending.current,orbit=controls as OrbitControlsImpl|undefined
     if(!shot||!orbit)return
