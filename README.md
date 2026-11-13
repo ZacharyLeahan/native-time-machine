@@ -66,7 +66,7 @@ Choose **Walk** in the top view switch to explore the landscape at a 5.6-foot ey
 
 ### Spectator mode
 
-Walk traversal: tap **A** (or Space) to jump; hold it while facing a house wall within roughly 5.5 ft or a planted tree trunk within 6 ft to perform an assisted climb onto its modeled top. Taller objects take longer to ascend. The camera rises before moving over the edge and stays supported on the roof/crown; walking off causes a fall to the next surface or terrain. Carrying a plant or opening the wheel disables climbing. This is a planner-specific assisted climb, not a recreation of The Finals' short-range ledge physics. Tree crowns are treated as walkable model surfaces for exploration; no plant data changes.
+Walk traversal: tap **A** to jump. Assisted climbing is temporarily disabled after a Walk-mode rendering/input regression. Walk uses the previous ground-following controller; the climb prototype and its geometry tests remain available for future work.
 
 Choose **Spectator** for unrestricted camera flight without plant editing, collision, gravity, or parcel constraints. Mouse look uses capture or drag; WASD/arrows fly toward the camera direction, Space/E ascends vertically, Q/C descends, Shift flies faster, and F exits. On a standard Xbox controller use LS to fly, RS to look, RB up, LB down, L3 fast flight, LT zoom, and B exit. Reset view restores the overview. Planting, carrying, equipment, deletion, importing, resetting the design and undo/redo are blocked while spectating. Camera position is transient and never changes saved plant coordinates.
 

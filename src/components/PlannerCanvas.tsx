@@ -202,7 +202,7 @@ function WalkHud() {
       <span><Keyboard size={13}/> WASD / arrows move · Shift sprints · Q exits</span>
       <span><MousePointer2 size={13}/> Mouse looks · Esc releases</span>
       <span className={controllerConnected?'connected':''}><Gamepad2 size={14}/> LS move · RS look · L3 sprint · B cancel/exit</span>
-      <span>A / Space jump · hold near house/tree to climb</span><span>LT zoom · X pick up/drop · RT drop</span><span>{prompt}</span>
+      <span>A jump · LT zoom · X pick up/drop · RT drop</span><span>{prompt}</span>
       <button className="wheel-open" style={{pointerEvents:'auto'}} onClick={()=>usePlannerStore.setState({wheelOpen:true,wheelIndex:null})}>LB · Plant equipment wheel</button>
       <label style={{pointerEvents:'auto',fontSize:10,gridColumn:'1 / -1'}}>Aim deadzone {Math.round(deadzone*100)}% <input aria-label="Controller aim deadzone" type="range" min=".1" max=".4" step=".01" value={deadzone} onChange={e=>setDeadzone(Number(e.target.value))}/></label>
     </div>
