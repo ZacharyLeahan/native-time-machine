@@ -1,7 +1,7 @@
 import { Grid, Line, OrbitControls, OrthographicCamera, PerspectiveCamera, Sky, SoftShadows, useTexture } from '@react-three/drei'
-import { Canvas, type ThreeEvent } from '@react-three/fiber'
+import { Canvas, type ThreeEvent, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BufferGeometry, DoubleSide, Float32BufferAttribute, MOUSE, Shape } from 'three'
+import { BufferGeometry, DoubleSide, Float32BufferAttribute, LinearFilter, LinearMipmapLinearFilter, MOUSE, Shape, SRGBColorSpace } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { Gamepad2, Keyboard, MousePointer2 } from 'lucide-react'
 import { catalogById } from '../data/catalog'
@@ -31,7 +31,8 @@ const AERIAL_CORNERS = [
 type ImageryLayer = 'detail' | 'current'
 
 function AerialContext({layer}:{layer:ImageryLayer}) {
-  const textures=useTexture(['/pickwick-pema-2021.png','/pickwick-naip-2024.png'])
+  const textures=useTexture(['/pickwick-pema-2021-4096.png','/pickwick-naip-2024.png'])
+  const gl=useThree((state)=>state.gl)
   const texture=layer==='detail'?textures[0]:textures[1]
   const geometry=useMemo(()=>{
     const value=new BufferGeometry()
@@ -41,8 +42,19 @@ function AerialContext({layer}:{layer:ImageryLayer}) {
     value.computeVertexNormals()
     return value
   },[])
+  useEffect(()=>{
+    const anisotropy=gl.capabilities.getMaxAnisotropy()
+    textures.forEach((aerialTexture)=>{
+      aerialTexture.colorSpace=SRGBColorSpace
+      aerialTexture.anisotropy=anisotropy
+      aerialTexture.minFilter=LinearMipmapLinearFilter
+      aerialTexture.magFilter=LinearFilter
+      aerialTexture.generateMipmaps=true
+      aerialTexture.needsUpdate=true
+    })
+  },[gl,textures])
   useEffect(()=>()=>geometry.dispose(),[geometry])
-  return <mesh geometry={geometry} receiveShadow><meshBasicMaterial map={texture} color="#ffffff" side={DoubleSide}/></mesh>
+  return <mesh geometry={geometry} receiveShadow><meshBasicMaterial map={texture} color="#ffffff" side={DoubleSide} toneMapped={false}/></mesh>
 }
 
 function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[number,number,number][],viewMode:ViewMode}) {
@@ -128,7 +140,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
     <AerialContext layer={imageryLayer}/>
     <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.03,0]} onClick={onYardClick} onPointerMove={onMove} onPointerUp={()=>setDraggingId(null)} receiveShadow>
       <shapeGeometry args={[parcelShape]} />
-      <meshStandardMaterial color={viewMode==='garden'?'#b8d3a6':'#dce8d1'} roughness={1} transparent opacity={viewMode==='garden'?.2:.12} depthWrite={false} />
+      <meshStandardMaterial color={viewMode==='garden'?'#b8d3a6':'#dce8d1'} roughness={1} transparent opacity={viewMode==='walk'?.035:viewMode==='garden'?.12:.1} depthWrite={false} />
     </mesh>
     {viewMode==='planner'&&<Grid position={[0,.02,0]} args={[240,240]} cellSize={5} cellThickness={.3} cellColor="#7f8f77" sectionSize={25} sectionThickness={.8} sectionColor="#52634e" fadeDistance={320} infiniteGrid={false}/>} 
     <Line points={boundaryPoints} color="#334e39" lineWidth={viewMode==='garden'?2:1.4}/>

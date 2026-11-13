@@ -11,6 +11,7 @@ Native Time Machine is a browser-based landscape planner that lets homeowners pl
 - A clean property baseline with no unverified existing trees preloaded
 - A default orbitable perspective garden with sky, lighting, shadows, volumetric plants, and visible vertical growth
 - A ground-level Walk mode with pointer-lock mouse look, keyboard movement, sprinting, collision boundaries, and Xbox-style dual-stick controls
+- A maximum-size 4096 px PEMA leaf-off aerial with GPU anisotropic filtering, preserving path and ground detail in overhead and oblique views
 - Date-specific solar playback driven by NREL's Solar Position Algorithm, with live azimuth, elevation, sunrise, solar noon, sunset, a visible sun path, and roof shadows
 - An optional orthographic Plan view with a 5 ft measurement grid, zoom, pan, planting, selection, and drag-to-move
 - Searchable catalog of ten native trees, shrubs, and perennials
@@ -121,6 +122,8 @@ Newer public LiDAR is available: PASDA tile `27002580PAS_SE_SE` covers the parce
 The reproducible [`scripts/analyze_pickwick_lidar_2024.py`](scripts/analyze_pickwick_lidar_2024.py) inspection requires actual low returns within a 1.25-foot column across at least four one-foot height slices. It leaves six weak results as remote candidates, not accepted trees; dense backyard stems remain unresolved. The generated [JSON report](data/analysis/pickwick_lidar_2024_report.json) and [diagnostic image](data/analysis/pickwick_lidar_2024_diagnostic.png) document that result. A ground stem inventory using redundant tape or laser distances from fixed house/control points is the next authoritative input.
 
 The [`scripts/analyze_pickwick_imagery.py`](scripts/analyze_pickwick_imagery.py) alignment and color-infrared experiment remain available for canopy context only. They must not be used to create trunk points.
+
+The app's 2021 detail layer is a reproducible 4096 × 4096 export—the maximum image size exposed by the PEMA service—and uses the browser GPU's maximum supported anisotropic filtering plus trilinear mipmaps. This improves clarity while looking straight down or across the ground, but it cannot reveal detail beyond the source imagery's nominal six-inch ground resolution. Run [`scripts/fetch_pickwick_aerial.py`](scripts/fetch_pickwick_aerial.py) to regenerate the checked-in export from PASDA.
 
 Free imagery sources:
 
