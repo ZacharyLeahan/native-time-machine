@@ -1,4 +1,6 @@
 import type { Intersection, Object3D } from 'three'
+import { catalogById } from '../data/catalog'
+import { DEFAULT_FAVORITES, sanitizeFavorites } from '../persistence/favorites'
 export function aimedPlant(hits:readonly Intersection[]):string|null {
   for(const hit of hits){
     let object:Object3D|null=hit.object
@@ -8,11 +10,12 @@ export function aimedPlant(hits:readonly Intersection[]):string|null {
   }
   return null
 }
-export const equipmentItems=[
-  {label:'White oak',speciesId:'white-oak'}, {label:'Red maple',speciesId:'red-maple'},
-  {label:'Eastern redbud',speciesId:'eastern-redbud'}, {label:'Serviceberry',speciesId:'serviceberry'},
-  {label:'Move plants',speciesId:null}, {label:'Cancel',speciesId:null},
-] as const
+export function equipmentForFavorites(favorites: readonly string[]) {
+  const ids=sanitizeFavorites([...favorites])
+  const items:{label:string;speciesId:string|null;action:string}[]=Array.from({length:4},(_,i)=>({label:ids[i]?catalogById.get(ids[i])!.commonName:'Empty favorite',speciesId:ids[i]??null,action:ids[i]?'plant':'empty'}))
+  return [...items,{label:'Move plants',speciesId:null,action:'move'},{label:'Cancel',speciesId:null,action:'cancel'}]
+}
+export const equipmentItems=equipmentForFavorites(DEFAULT_FAVORITES)
 export function wheelSector(x:number,y:number):number|null {
   if(Math.hypot(x,y)<.45)return null
   const angle=(Math.atan2(x,-y)+Math.PI*2)%(Math.PI*2)

@@ -2,10 +2,47 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePlannerStore as store } from './usePlannerStore'
 import { defaultDesign } from '../persistence/design'
 import { placementError } from '../simulation/placement'
+import { DEFAULT_FAVORITES, FAVORITES_KEY } from '../persistence/favorites'
 
-beforeEach(()=>store.setState({viewMode:'garden',design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
+beforeEach(()=>store.setState({viewMode:'garden',favorites:[...DEFAULT_FAVORITES],cameraShortcut:null,walkCarry:null,design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
 afterEach(()=>vi.unstubAllGlobals())
 describe('design editing',()=>{
+  it('persists favorites separately and equips a replacement without changing any placements or history',()=>{
+    const setItem=vi.fn();vi.stubGlobal('localStorage',{setItem})
+    const original=store.getState().design
+    store.getState().toggleFavorite('white-oak');store.getState().toggleFavorite('pawpaw')
+    expect(setItem).toHaveBeenLastCalledWith(FAVORITES_KEY,JSON.stringify(['red-maple','eastern-redbud','serviceberry','pawpaw']))
+    store.getState().chooseEquipment(3,5,8)
+    expect(store.getState().walkCarry?.speciesId).toBe('pawpaw')
+    store.getState().toggleFavorite('american-hazelnut')
+    expect(store.getState().favorites).toHaveLength(4)
+    expect(store.getState().notice).toContain('four')
+    expect(store.getState().design).toBe(original);expect(store.getState().past).toHaveLength(0)
+  })
+  it('keeps empty wheel slots inert and camera shortcuts out of undo and design data',()=>{
+    store.setState({favorites:[],walkCarry:{id:'preview',speciesId:'pawpaw',xFt:0,zFt:0}})
+    const original=store.getState().design
+    store.getState().chooseEquipment(0,0,0)
+    expect(store.getState().walkCarry?.speciesId).toBe('pawpaw')
+    store.getState().requestCamera('front')
+    expect(store.getState().cameraShortcut?.preset).toBe('front')
+    expect(store.getState().design).toBe(original);expect(store.getState().past).toHaveLength(0)
+    store.getState().setViewMode('walk');expect(store.getState().cameraShortcut).toBeNull()
+    store.getState().requestCamera('selected');expect(store.getState().viewMode).toBe('walk')
+  })
+  it('focuses a selected plant from Plan without modifying its location and can repeat the shot',()=>{
+    store.getState().placePlant('white-oak',0,0)
+    const original=store.getState().design,history=store.getState().past
+    store.getState().setViewMode('planner')
+    store.getState().requestCamera('selected')
+    expect(store.getState().viewMode).toBe('garden')
+    expect(store.getState().selectedPlantId).toBe(original.plants[0].id)
+    const first=store.getState().cameraShortcut?.id
+    store.getState().requestCamera('selected')
+    expect(store.getState().cameraShortcut?.id).not.toBe(first)
+    expect(store.getState().design).toBe(original);expect(store.getState().past).toBe(history)
+    store.getState().resetCamera();expect(store.getState().cameraShortcut).toBeNull()
+  })
   it('blocks every design mutation and equipment action in spectator mode',()=>{
     store.getState().placePlant('white-oak',0,0)
     const original=store.getState().design,id=original.plants[0].id

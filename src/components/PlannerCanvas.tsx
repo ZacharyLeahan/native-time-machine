@@ -18,6 +18,7 @@ import { MeasuredHouse } from './MeasuredHouse'
 import { groundHeight } from '../simulation/surface'
 import { lot49Plan, recordedLot49Boundary } from '../data/recordedLot49'
 import { EquipmentWheel } from './EquipmentWheel'
+import { CameraShortcuts, CameraShortcutsRig } from './CameraShortcuts'
 
 function makeHorizontalShape(points: readonly SitePoint[]) {
   const shape=new Shape()
@@ -178,6 +179,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imager
     {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={carry?.id===plant.id?{...plant,xFt:carry.xFt,zFt:carry.zFt}:plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
     {carry?.speciesId&&<PlantSymbol plant={{id:carry.id,speciesId:carry.speciesId,xFt:carry.xFt,zFt:carry.zFt,plantedYear:0}} onDragMove={()=>{}} onDragStart={()=>{}}/>}
     {viewMode==='spectator'?<SpectatorControls/>:viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
+    {viewMode==='garden'&&<CameraShortcutsRig/>}
   </>
 }
 
@@ -256,6 +258,7 @@ export function PlannerCanvas() {
       <YardScene imageryLayer={imageryLayer} solarSnapshot={solarSnapshot} sunPath={sunPath} recordedBoundary={recordedBoundary}/>
     </Canvas>
     <div className="view-badge">{viewMode==='garden'?'3D GARDEN':viewMode==='walk'?'WALK MODE':viewMode==='spectator'?'SPECTATOR · READ ONLY':'OVERHEAD PLAN'}</div>
+    {(viewMode==='garden'||viewMode==='planner')&&<CameraShortcuts/>}
     {viewMode==='planner'&&<div className="north-badge"><strong>N</strong><span>↑</span></div>}
     {viewMode!=='walk'&&viewMode!=='spectator'&&<div className="imagery-control" role="group" aria-label="Aerial imagery layer">
       <span>Base imagery</span>

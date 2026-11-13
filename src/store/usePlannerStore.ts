@@ -3,12 +3,16 @@ import { catalogById } from '../data/catalog'
 import { placementError } from '../simulation/placement'
 import { defaultDesign, loadDesign, parseDesign, saveDesign } from '../persistence/design'
 import type { PlantInstance, PropertyDesign, Season } from '../types'
-import { equipmentItems } from '../simulation/controller'
+import { equipmentForFavorites } from '../simulation/controller'
+import { FAVORITES_KEY, DEFAULT_FAVORITES, loadFavorites, MAX_FAVORITES } from '../persistence/favorites'
 import { isPointInsidePolygon } from '../simulation/walkNavigation'
 import { pickwickProperty } from '../data/pickwickProperty'
 
 export type ViewMode = 'garden' | 'planner' | 'walk' | 'spectator'
 interface PlannerState {
+  favorites:string[]; toggleFavorite:(id:string)=>void
+  cameraShortcut:{preset:'front'|'back'|'left'|'right'|'selected';id:number}|null
+  requestCamera:(preset:'front'|'back'|'left'|'right'|'selected')=>void
   walkCarry:{id:string;xFt:number;zFt:number;speciesId?:string}|null; walkPrompt:string; lookDeadzone:number; setLookDeadzone:(value:number)=>void
   wheelOpen:boolean;wheelIndex:number|null; chooseEquipment:(index:number|null,xFt:number,zFt:number)=>void; dropCarried:(xFt:number,zFt:number,playerX:number,playerZ:number)=>boolean
   design: PropertyDesign; year: number; season: Season; viewMode: ViewMode; selectedPlantId: string | null; armedSpeciesId: string | null; cameraResetKey: number; notice: string | null
@@ -27,12 +31,28 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
   }
   const save=()=>{try{saveDesign(get().design);set({saveStatus:'Saved locally'})}catch{set({saveStatus:'Could not save — export a backup',notice:'Local saving failed. Export your design to keep a backup.'})}}
   return {
+    favorites:typeof localStorage==='undefined'?[...DEFAULT_FAVORITES]:loadFavorites(localStorage),
+    toggleFavorite:id=>{
+      const s=get(),species=catalogById.get(id)
+      if(!species||species.catalogVisible===false)return
+      if(!s.favorites.includes(id)&&s.favorites.length>=MAX_FAVORITES){set({notice:'Your plant kit holds four favorites. Remove a star to make room.'});return}
+      const favorites=s.favorites.includes(id)?s.favorites.filter(f=>f!==id):[...s.favorites,id]
+      set({favorites,wheelOpen:false,wheelIndex:null})
+      try{localStorage.setItem(FAVORITES_KEY,JSON.stringify(favorites))}catch{set({notice:'Favorites updated for this session; local saving is unavailable.'})}
+    },
+    cameraShortcut:null,
+    requestCamera:preset=>{
+      if(preset==='selected'&&!get().design.plants.some(p=>p.id===get().selectedPlantId))return
+      get().endMove()
+      set(s=>({viewMode:'garden',walkCarry:null,wheelOpen:false,wheelIndex:null,armedSpeciesId:null,cameraShortcut:{preset,id:(s.cameraShortcut?.id??0)+1}}))
+    },
     wheelOpen:false,wheelIndex:null,
     chooseEquipment:(index,xFt,zFt)=>{
       if(get().viewMode==='spectator')return
       if(index===null){set({wheelOpen:false,wheelIndex:null});return}
-      const item=equipmentItems[index];if(!item)return
-      set({wheelOpen:false,wheelIndex:null,walkCarry:item.speciesId?{id:'walk-preview',speciesId:item.speciesId,xFt,zFt}:null,walkPrompt:item.speciesId?`${item.label} ready · X / RT plant`:index===4?'Aim at a plant · X picks up':'Selection cancelled'})
+      const item=equipmentForFavorites(get().favorites)[index];if(!item)return
+      if(item.action==='empty'){set({wheelOpen:false,wheelIndex:null,walkPrompt:'Add a favorite from the plant library to fill this slot.'});return}
+      set({wheelOpen:false,wheelIndex:null,walkCarry:item.speciesId?{id:'walk-preview',speciesId:item.speciesId,xFt,zFt}:null,walkPrompt:item.speciesId?`${item.label} ready · X / RT plant`:item.action==='move'?'Aim at a plant · X picks up':'Selection cancelled'})
     },
     dropCarried:(xFt,zFt,playerX,playerZ)=>{
       if(get().viewMode==='spectator')return false
@@ -48,7 +68,7 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
     design:initialDesign,year:10,season:'summer',viewMode:'garden',selectedPlantId:null,armedSpeciesId:null,cameraResetKey:0,notice:null,
     past:[],future:[],moveBaseline:null,saveStatus:'Saved locally',
     setYear:year=>set({year}),setSeason:season=>set({season}),
-    setViewMode:viewMode=>{get().endMove();set({viewMode,walkCarry:null,wheelOpen:false,wheelIndex:null,cameraResetKey:get().cameraResetKey+1,armedSpeciesId:viewMode==='walk'||viewMode==='spectator'?null:get().armedSpeciesId,selectedPlantId:viewMode==='spectator'?null:get().selectedPlantId})},
+    setViewMode:viewMode=>{get().endMove();set({viewMode,cameraShortcut:null,walkCarry:null,wheelOpen:false,wheelIndex:null,cameraResetKey:get().cameraResetKey+1,armedSpeciesId:viewMode==='walk'||viewMode==='spectator'?null:get().armedSpeciesId,selectedPlantId:viewMode==='spectator'?null:get().selectedPlantId})},
     armSpecies:armedSpeciesId=>set({armedSpeciesId,selectedPlantId:null}),selectPlant:selectedPlantId=>set({selectedPlantId,armedSpeciesId:null}),
     placePlant:(speciesId,xFt,zFt)=>{
       if(get().viewMode==='spectator')return
@@ -81,7 +101,7 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
     },
     undo:()=>{if(get().viewMode==='spectator')return;get().endMove();const s=get(),design=s.past.at(-1);if(!design)return;set({design,past:s.past.slice(0,-1),future:[s.design,...s.future],selectedPlantId:null,armedSpeciesId:null,saveStatus:'Saving…'})},
     redo:()=>{if(get().viewMode==='spectator')return;get().endMove();const s=get(),design=s.future[0];if(!design)return;set({design,past:[...s.past,s.design],future:s.future.slice(1),selectedPlantId:null,armedSpeciesId:null,saveStatus:'Saving…'})},
-    resetCamera:()=>set(s=>({cameraResetKey:s.cameraResetKey+1})),
+    resetCamera:()=>set(s=>({cameraShortcut:null,cameraResetKey:s.cameraResetKey+1})),
     resetDesign:()=>{commit({...defaultDesign,plants:[]});set({selectedPlantId:null,armedSpeciesId:null,notice:'Design reset. Undo restores it.'})},
     importDesign:json=>{if(get().viewMode==='spectator')return;const design=parseDesign(json);commit(design);set({selectedPlantId:null,armedSpeciesId:null,notice:'Design imported. Undo restores the previous design.'})},
     persist:save,autosave:save,clearNotice:()=>set({notice:null}),
