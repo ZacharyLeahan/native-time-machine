@@ -12,7 +12,7 @@ import { usePlannerStore, type ViewMode } from '../store/usePlannerStore'
 import { PlantSymbol } from './PlantSymbol'
 import { SunPanel } from './SunPanel'
 import { calculateSolarSnapshot, localDateString, sampleSunPath, type SolarSnapshot } from '../simulation/solar'
-import { WalkControls } from './WalkControls'
+import { WalkControls, type WalkAimRef } from './WalkControls'
 import { SpectatorControls } from './SpectatorControls'
 import { MeasuredHouse } from './MeasuredHouse'
 import { groundHeight } from '../simulation/surface'
@@ -106,7 +106,7 @@ function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[nu
   </>
 }
 
-function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imageryLayer:ImageryLayer,solarSnapshot:SolarSnapshot,sunPath:[number,number,number][],recordedBoundary:boolean}) {
+function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary,walkAimRef}:{imageryLayer:ImageryLayer,solarSnapshot:SolarSnapshot,sunPath:[number,number,number][],recordedBoundary:boolean;walkAimRef:WalkAimRef}) {
   const design = usePlannerStore((s) => s.design)
   const armed = usePlannerStore((s) => s.armedSpeciesId)
   const viewMode = usePlannerStore((s) => s.viewMode)
@@ -180,7 +180,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imager
     {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={carry?.id===plant.id?{...plant,xFt:carry.xFt,zFt:carry.zFt}:plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
     {carry?.speciesId&&<PlantSymbol plant={{id:carry.id,speciesId:carry.speciesId,xFt:carry.xFt,zFt:carry.zFt,plantedYear:0}} onDragMove={()=>{}} onDragStart={()=>{}}/>}
     <PlacementDistanceLines/>
-    {viewMode==='spectator'?<SpectatorControls/>:viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
+    {viewMode==='spectator'?<SpectatorControls/>:viewMode==='walk'?<WalkControls obstacles={walkObstacles} aimRef={walkAimRef}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
     {viewMode==='garden'&&<CameraShortcutsRig/>}
   </>
 }
@@ -214,6 +214,7 @@ function WalkHud() {
 }
 
 export function PlannerCanvas() {
+  const walkAimRef=useRef({xFt:0,zFt:-83})
   const recordedBoundary=usePlannerStore(s=>s.recordedBoundary),toggleBoundary=usePlannerStore(s=>s.toggleBoundary)
   const armed = usePlannerStore((s)=>s.armedSpeciesId)
   const viewMode = usePlannerStore((s)=>s.viewMode)
@@ -257,7 +258,7 @@ export function PlannerCanvas() {
 
   return <div className={`canvas-wrap ${armed ? 'placing' : ''} ${(viewMode==='walk'||viewMode==='spectator')?'walking':''}`}>
     <Canvas shadows dpr={[1,2]} gl={{antialias:true,powerPreference:'high-performance'}}>
-      <YardScene imageryLayer={imageryLayer} solarSnapshot={solarSnapshot} sunPath={sunPath} recordedBoundary={recordedBoundary}/>
+      <YardScene imageryLayer={imageryLayer} solarSnapshot={solarSnapshot} sunPath={sunPath} recordedBoundary={recordedBoundary} walkAimRef={walkAimRef}/>
     </Canvas>
     <div className="view-badge">{viewMode==='garden'?'3D GARDEN':viewMode==='walk'?'WALK MODE':viewMode==='spectator'?'SPECTATOR · READ ONLY':'OVERHEAD PLAN'}</div>
     {(viewMode==='garden'||viewMode==='planner')&&<CameraShortcuts/>}
@@ -272,7 +273,7 @@ export function PlannerCanvas() {
     <button className="scale-badge" style={{pointerEvents:'auto'}} aria-label="Toggle recorded plan and county GIS boundary" aria-pressed={recordedBoundary} title={`${lot49Plan.anchor} Click to compare county GIS. Placement limits use county GIS.`} onClick={toggleBoundary}>{recordedBoundary?'Lot 49 · recorded dimensions · GIS anchor':'County GIS boundary · click to compare'}</button>
     <div className="imagery-badge">{imageryLayer==='solar'?'LiDAR terrain + fitted roof':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
     <SunPanel date={solarDate} minute={solarMinute} playing={solarPlaying} speed={solarSpeed} snapshot={solarSnapshot} onDateChange={changeDate} onMinuteChange={(minute)=>{setSolarMinute(minute);setSolarPlaying(false)}} onPlayingChange={toggleSolarPlayback} onSpeedChange={setSolarSpeed} onToday={returnToNow}/></>}
-    {viewMode==='walk'&&<><WalkHud/><EquipmentWheel/><PlacementMeasurementReadout compact/></>}
+    {viewMode==='walk'&&<><WalkHud/><EquipmentWheel aimRef={walkAimRef}/><PlacementMeasurementReadout compact/></>}
     {viewMode==='spectator'&&<div className="walk-hud"><div className="walk-reticle" aria-hidden="true"><i/><i/></div><div className="walk-help"><strong>Spectator · free flight · editing disabled</strong><span>WASD / arrows fly · mouse looks</span><span>Space / E up · Q / C down · Shift fast</span><span>Xbox: LS fly · RS look · RB up · LB down</span><span>L3 fast · LT zoom · B / F exit</span><span>Click to capture mouse · Esc releases</span></div></div>}
   </div>
 }

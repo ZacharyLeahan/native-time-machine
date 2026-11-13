@@ -11,8 +11,9 @@ import { aimedPlant, buttonEdges, wheelSector } from '../simulation/controller'
 
 const EYE_HEIGHT_FT=5.6
 const START_POSITION={x:0,z:95}
+export interface WalkAimRef {current:{xFt:number;zFt:number}}
 
-export function WalkControls({obstacles}:{obstacles:readonly WalkObstacle[]}) {
+export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle[];aimRef?:WalkAimRef}) {
   const {camera,gl,scene}=useThree()
   const resetKey=usePlannerStore((state)=>state.cameraResetKey)
   const setViewMode=usePlannerStore((state)=>state.setViewMode)
@@ -36,6 +37,7 @@ export function WalkControls({obstacles}:{obstacles:readonly WalkObstacle[]}) {
     yaw.current=0
     pitch.current=0
     camera.rotation.set(0,0,0,'YXZ')
+    if(aimRef)aimRef.current={xFt:START_POSITION.x,zFt:-START_POSITION.z+12}
 
     const canvas=gl.domElement
     const ownerDocument=canvas.ownerDocument
@@ -83,15 +85,16 @@ export function WalkControls({obstacles}:{obstacles:readonly WalkObstacle[]}) {
       usePlannerStore.setState({walkCarry:null,wheelOpen:false,wheelIndex:null})
       if(ownerDocument.pointerLockElement===canvas)ownerDocument.exitPointerLock?.()
     }
-  },[camera,gl,setViewMode])
+  },[camera,gl,setViewMode,aimRef])
 
   useEffect(()=>{
     camera.position.set(START_POSITION.x,EYE_HEIGHT_FT,START_POSITION.z)
     yaw.current=0
     pitch.current=0
     jump.current={height:0,velocity:0}
+    if(aimRef)aimRef.current={xFt:START_POSITION.x,zFt:-START_POSITION.z+12}
     usePlannerStore.setState({walkCarry:null,wheelOpen:false,wheelIndex:null})
-  },[camera,resetKey])
+  },[camera,resetKey,aimRef])
 
   useFrame((_,rawDelta)=>{
     const delta=Math.min(rawDelta,.05)
@@ -158,18 +161,20 @@ export function WalkControls({obstacles}:{obstacles:readonly WalkObstacle[]}) {
     jump.current=jumpStep(jump.current.height,jump.current.velocity,delta,jumpPressed)
     camera.position.y=groundHeight(camera.position.x,-camera.position.z)+EYE_HEIGHT_FT+jump.current.height+(moving?Math.sin(stride.current)*.055:0)
     if(state.viewMode!=='walk')return
-    if(suppressActions)return
     const xFt=camera.position.x-Math.sin(yaw.current)*12,zFt=-(camera.position.z-Math.cos(yaw.current)*12)
+    if(aimRef)aimRef.current={xFt,zFt}
+    if(suppressActions)return
     if(carry){
+      if(pickPressed||dropPressed){
+        // Commit the same position the plant preview and distance guides show.
+        // Sampling a newer camera aim here can otherwise jump beyond the guide.
+        state.dropCarried(carry.xFt,carry.zFt,camera.position.x,-camera.position.z)
+        return
+      }
       const error=placementError(xFt,zFt)
       const prompt=error??'X / RT place here · B cancels'
       hudClock.current+=delta
       if(hudClock.current>.08){hudClock.current=0;usePlannerStore.setState({walkCarry:{...carry,xFt,zFt},walkPrompt:prompt})}
-      if(pickPressed||dropPressed){
-        if(error){usePlannerStore.setState({walkPrompt:error});return}
-        // Move once on drop, preserving normal validation and one undo step.
-        state.dropCarried(xFt,zFt,camera.position.x,-camera.position.z)
-      }
     }else{
       ray.current.setFromCamera(new Vector2(0,0),camera)
       ray.current.far=65

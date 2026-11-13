@@ -37,6 +37,46 @@ beforeEach(()=>{
 afterEach(()=>{harness.cleanups.splice(0).reverse().forEach(cleanup=>cleanup());vi.unstubAllGlobals()})
 
 describe('Xbox Walk frame integration',()=>{
+  it('excludes the original trunk while measuring an existing tree carried with X',()=>{
+    store.getState().placePlant('white-oak',0,0);store.getState().placePlant('red-maple',20,0)
+    const design=store.getState().design,id=design.plants[0].id
+    setup();camera.position.set(0,5.6,10)
+    const geometry=new BoxGeometry(4,10,4),material=new MeshBasicMaterial(),tree=new Mesh(geometry,material)
+    tree.position.y=5;tree.userData.plantId=id;scene.add(tree);scene.updateMatrixWorld(true);camera.updateMatrixWorld(true)
+    button(2,true);frame();button(2,false);frame(6)
+    const carry=store.getState().walkCarry!,measurement=measurePlacement(carry,design.plants,[{xFt:-20,zFt:-20},{xFt:30,zFt:-20},{xFt:30,zFt:30},{xFt:-20,zFt:30}])
+    expect(carry.id).toBe(id);expect(carry.zFt).toBeCloseTo(2)
+    expect(measurement.neighbor?.plant.id).toBe(design.plants[1].id)
+    expect(measurement.neighbor?.distanceFt).toBeCloseTo(Math.sqrt(404))
+    expect(store.getState().design).toBe(design)
+    geometry.dispose();material.dispose()
+  })
+  it.each([30,60,144])('drops at the displayed measurement position while moving at %i fps',fps=>{
+    setup();camera.position.set(0,5.6,10);store.getState().chooseEquipment(1,0,0);frame(6)
+    const original=store.getState().design,preview={...store.getState().walkCarry!}
+    pad.axes[1]=-1;button(10,true);harness.frame({},1/fps)
+    button(7,true);harness.frame({},1/fps)
+    const planted=store.getState().design.plants[0]
+    expect(planted.xFt).toBe(preview.xFt);expect(planted.zFt).toBe(preview.zFt)
+    expect(planted.zFt).not.toBeCloseTo(-camera.position.z+12,2)
+    expect(store.getState().past).toHaveLength(1)
+    store.getState().undo();expect(store.getState().design).toBe(original)
+  })
+  it('anchors a mouse-selected wheel preview at the current Walk aim on its first render',()=>{
+    const aimRef={current:{xFt:999,zFt:999}}
+    WalkControls({obstacles:[],aimRef});frame()
+    camera.position.set(20,5.6,20);pad.axes[2]=.8;frame(10);pad.axes.fill(0)
+    store.setState({wheelOpen:true,wheelIndex:null});frame()
+    const aim={...aimRef.current},design=store.getState().design
+    expect(aim.xFt).toBeCloseTo(camera.position.x-Math.sin(camera.rotation.y)*12)
+    expect(aim.zFt).toBeCloseTo(-camera.position.z+Math.cos(camera.rotation.y)*12)
+    const wheel=EquipmentWheel({aimRef})!
+    const options=wheel.props.children[1] as {props:{onClick:()=>void}}[]
+    options[0].props.onClick()
+    expect(store.getState().walkCarry).toMatchObject(aim)
+    expect(store.getState().design).toBe(design)
+    expect(aim.xFt).not.toBe(0);expect(aim.zFt).not.toBe(-85)
+  })
   it('feeds live carry measurements as the controller moves while leaving saved positions intact',()=>{
     store.getState().placePlant('white-oak',0,0)
     const design=store.getState().design
@@ -55,7 +95,7 @@ describe('Xbox Walk frame integration',()=>{
   it('allows Escape to dismiss the equipment overlay without committing a preview',()=>{
     setup();store.getState().chooseEquipment(0,0,0)
     const design=store.getState().design,carry=store.getState().walkCarry
-    store.setState({wheelOpen:true,wheelIndex:1});EquipmentWheel()
+    store.setState({wheelOpen:true,wheelIndex:1});EquipmentWheel({aimRef:{current:{xFt:0,zFt:0}}})
     win.dispatchEvent(Object.assign(new Event('keydown',{cancelable:true}),{key:'Escape'}))
     expect(store.getState().wheelOpen).toBe(false)
     expect(store.getState().walkCarry).toBe(carry);expect(store.getState().design).toBe(design)
@@ -70,7 +110,7 @@ describe('Xbox Walk frame integration',()=>{
     button(4,false);pad.axes.fill(0);frame(2)
     expect(store.getState().walkCarry?.speciesId).toBe('pawpaw')
     expect(serializeDesign(store.getState().design)).toBe(before)
-    camera.position.set(0,5.6,10);frame()
+    camera.position.set(0,5.6,10);frame(6)
     button(7,false);frame();button(7,true);frame(30)
     expect(store.getState().design.plants).toHaveLength(1)
     expect(store.getState().design.plants[0].speciesId).toBe('pawpaw')
@@ -107,7 +147,7 @@ describe('Xbox Walk frame integration',()=>{
     tree.position.y=5;tree.userData.plantId=original.plants[0].id;scene.add(tree);scene.updateMatrixWorld(true);camera.updateMatrixWorld(true)
     button(2,true);frame();expect(store.getState().walkCarry?.id).toBe(original.plants[0].id)
     expect(store.getState().design).toBe(original)
-    button(2,false);frame();button(2,true);frame()
+    button(2,false);frame(6);button(2,true);frame()
     expect(store.getState().walkCarry).toBeNull();expect(store.getState().design.plants[0].zFt).toBeCloseTo(2)
     store.getState().undo();expect(store.getState().design).toBe(original)
     geometry.dispose();material.dispose()
