@@ -15,6 +15,7 @@ import { calculateSolarSnapshot, localDateString, sampleSunPath, type SolarSnaps
 import { WalkControls } from './WalkControls'
 import { MeasuredHouse } from './MeasuredHouse'
 import { groundHeight } from '../simulation/surface'
+import { lot49Plan, recordedLot49Boundary } from '../data/recordedLot49'
 
 function makeHorizontalShape(points: readonly SitePoint[]) {
   const shape=new Shape()
@@ -101,7 +102,7 @@ function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[nu
   </>
 }
 
-function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLayer,solarSnapshot:SolarSnapshot,sunPath:[number,number,number][]}) {
+function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imageryLayer:ImageryLayer,solarSnapshot:SolarSnapshot,sunPath:[number,number,number][],recordedBoundary:boolean}) {
   const design = usePlannerStore((s) => s.design)
   const armed = usePlannerStore((s) => s.armedSpeciesId)
   const viewMode = usePlannerStore((s) => s.viewMode)
@@ -114,8 +115,9 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
   const controls = useRef<OrbitControlsImpl>(null)
   const {gl,camera,raycaster,pointer}=useThree()
   const houseShape=makeHorizontalShape(pickwickProperty.buildingFootprint)
-  const boundaryPoints=pickwickProperty.boundary.flatMap((a,i)=>{
-    const b=pickwickProperty.boundary[(i+1)%pickwickProperty.boundary.length],n=Math.ceil(Math.hypot(b.xFt-a.xFt,b.zFt-a.zFt)/2)
+  const displayedBoundary=recordedBoundary?recordedLot49Boundary:pickwickProperty.boundary
+  const boundaryPoints=displayedBoundary.flatMap((a,i)=>{
+    const b=displayedBoundary[(i+1)%displayedBoundary.length],n=Math.ceil(Math.hypot(b.xFt-a.xFt,b.zFt-a.zFt)/2)
     return Array.from({length:n},(_,j)=>{const x=a.xFt+(b.xFt-a.xFt)*j/n,z=a.zFt+(b.zFt-a.zFt)*j/n;return [x,groundHeight(x,z)+.12,-z] as [number,number,number]})
   })
   boundaryPoints.push(boundaryPoints[0])
@@ -200,6 +202,7 @@ function WalkHud() {
 }
 
 export function PlannerCanvas() {
+  const [recordedBoundary,setRecordedBoundary]=useState(true)
   const armed = usePlannerStore((s)=>s.armedSpeciesId)
   const viewMode = usePlannerStore((s)=>s.viewMode)
   const [imageryLayer,setImageryLayer]=useState<ImageryLayer>('detail')
@@ -242,7 +245,7 @@ export function PlannerCanvas() {
 
   return <div className={`canvas-wrap ${armed ? 'placing' : ''} ${viewMode==='walk'?'walking':''}`}>
     <Canvas shadows dpr={[1,2]} gl={{antialias:true,powerPreference:'high-performance'}}>
-      <YardScene imageryLayer={imageryLayer} solarSnapshot={solarSnapshot} sunPath={sunPath}/>
+      <YardScene imageryLayer={imageryLayer} solarSnapshot={solarSnapshot} sunPath={sunPath} recordedBoundary={recordedBoundary}/>
     </Canvas>
     <div className="view-badge">{viewMode==='garden'?'3D GARDEN':viewMode==='walk'?'WALK MODE':'OVERHEAD PLAN'}</div>
     {viewMode==='planner'&&<div className="north-badge"><strong>N</strong><span>↑</span></div>}
@@ -253,7 +256,7 @@ export function PlannerCanvas() {
       <button className={imageryLayer==='solar'?'active':''} aria-pressed={imageryLayer==='solar'} onClick={()=>setImageryLayer('solar')}><strong>Solar ground</strong><small>Simulated shadows</small></button>
     </div>}
     {viewMode!=='walk'&&<><div className="canvas-hint">{armed ? 'Click the lawn to plant' : viewMode==='garden'?'Drag to orbit · Right-drag to pan · Scroll to zoom':'Drag plants to move · Right-drag to pan · Scroll to zoom'}</div>
-    <div className="scale-badge" title="County GIS boundary, not a survey or pavement-edge trace">15 Pickwick Ln · county GIS boundary</div>
+    <button className="scale-badge" style={{pointerEvents:'auto'}} aria-label="Toggle recorded plan and county GIS boundary" aria-pressed={recordedBoundary} title={`${lot49Plan.anchor} Click to compare county GIS. Placement limits use county GIS.`} onClick={()=>setRecordedBoundary(value=>!value)}>{recordedBoundary?'Lot 49 · recorded dimensions · GIS anchor':'County GIS boundary · click to compare'}</button>
     <div className="imagery-badge">{imageryLayer==='solar'?'LiDAR terrain + fitted roof':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
     <SunPanel date={solarDate} minute={solarMinute} playing={solarPlaying} speed={solarSpeed} snapshot={solarSnapshot} onDateChange={changeDate} onMinuteChange={(minute)=>{setSolarMinute(minute);setSolarPlaying(false)}} onPlayingChange={toggleSolarPlayback} onSpeedChange={setSolarSpeed} onToday={returnToNow}/></>}
     {viewMode==='walk'&&<WalkHud/>}
