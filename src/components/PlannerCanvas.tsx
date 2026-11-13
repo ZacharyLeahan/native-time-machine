@@ -28,7 +28,7 @@ const AERIAL_CORNERS = [
   { xFt:-168.404, zFt:173.664, u:0, v:1 },
 ] as const
 
-type ImageryLayer = 'detail' | 'current'
+type ImageryLayer = 'detail' | 'current' | 'solar'
 
 function AerialContext({layer}:{layer:ImageryLayer}) {
   const textures=useTexture(['/pickwick-pema-2021-4096.png','/pickwick-naip-2024.png'])
@@ -54,7 +54,10 @@ function AerialContext({layer}:{layer:ImageryLayer}) {
     })
   },[gl,textures])
   useEffect(()=>()=>geometry.dispose(),[geometry])
-  return <mesh geometry={geometry} receiveShadow><meshBasicMaterial map={texture} color="#ffffff" side={DoubleSide} toneMapped={false}/></mesh>
+  return <group>
+    <mesh geometry={geometry} receiveShadow>{layer==='solar'?<meshStandardMaterial color="#b4bf9d" roughness={1} side={DoubleSide}/>:<meshBasicMaterial map={texture} color="#ffffff" side={DoubleSide} toneMapped={false}/>}</mesh>
+    {layer!=='solar'&&<mesh geometry={geometry} position={[0,.012,0]} receiveShadow><shadowMaterial transparent opacity={.75} depthWrite={false}/></mesh>}
+  </group>
 }
 
 function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[number,number,number][],viewMode:ViewMode}) {
@@ -65,7 +68,7 @@ function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[nu
   return <>
     <color attach="background" args={[background]}/>
     {viewMode!=='planner'&&<>
-      <Sky distance={450000} sunPosition={sunPosition} turbidity={8} rayleigh={2.2}/>
+      {snapshot.altitudeDeg>-6&&<Sky distance={450000} sunPosition={sunPosition} turbidity={8} rayleigh={2.2}/>}
       <SoftShadows size={15} samples={12} focus={.45}/>
       {viewMode==='garden'&&path.length>1&&<Line points={path} color="#f4c957" lineWidth={1.2} transparent opacity={.68}/>}
       {snapshot.isAboveHorizon&&<mesh position={sunPosition}><sphereGeometry args={[4,24,24]}/><meshBasicMaterial color="#fff3a7" toneMapped={false}/></mesh>}
@@ -100,6 +103,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
   const year = usePlannerStore((s) => s.year)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const controls = useRef<OrbitControlsImpl>(null)
+  const {gl,camera,raycaster,pointer}=useThree()
   const parcelShape=makeHorizontalShape(pickwickProperty.boundary)
   const houseShape=makeHorizontalShape(pickwickProperty.buildingFootprint)
   const boundaryPoints=[...pickwickProperty.boundary,pickwickProperty.boundary[0]].map((point)=>[point.xFt,.18,-point.zFt] as [number,number,number])
@@ -114,6 +118,15 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
   }),[design.plants,year])
 
   useEffect(() => { controls.current?.reset() }, [resetKey])
+  useEffect(()=>{
+    if(!draggingId)return
+    const canvas=gl.domElement,orbit=controls.current
+    const finish=()=>{setDraggingId(null);usePlannerStore.getState().endMove()}
+    window.addEventListener('pointerup',finish)
+    window.addEventListener('pointercancel',finish)
+    window.addEventListener('blur',finish)
+    return()=>{window.removeEventListener('pointerup',finish);window.removeEventListener('pointercancel',finish);window.removeEventListener('blur',finish);usePlannerStore.getState().endMove();if(orbit)orbit.enabled=true;canvas.style.cursor=''}
+  },[draggingId,gl])
 
   function onYardClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation()
@@ -125,8 +138,12 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
   function onMove(event: ThreeEvent<PointerEvent>) {
     if (!draggingId) return
     event.stopPropagation()
-    const site=worldToSite(event.point)
-    move(draggingId, site.xFt, site.zFt)
+    raycaster.setFromCamera(pointer,camera)
+    const direction=raycaster.ray.direction,origin=raycaster.ray.origin
+    if(Math.abs(direction.y)<.00001)return
+    const distance=-origin.y/direction.y
+    if(distance<0)return
+    move(draggingId,origin.x+direction.x*distance,-(origin.z+direction.z*distance))
   }
 
   return <>
@@ -138,9 +155,9 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
     <SolarLighting snapshot={solarSnapshot} path={sunPath} viewMode={viewMode}/>
     {viewMode!=='planner'&&<mesh rotation={[-Math.PI/2,0,0]} position={[0,-.28,0]} receiveShadow><planeGeometry args={[420,420]}/><meshStandardMaterial color="#78886a" roughness={1}/></mesh>}
     <AerialContext layer={imageryLayer}/>
-    <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.03,0]} onClick={onYardClick} onPointerMove={onMove} onPointerUp={()=>setDraggingId(null)} receiveShadow>
+    <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.03,0]} onClick={onYardClick} onPointerMove={onMove} onPointerUp={()=>{setDraggingId(null);usePlannerStore.getState().endMove()}} receiveShadow>
       <shapeGeometry args={[parcelShape]} />
-      <meshStandardMaterial color={viewMode==='garden'?'#b8d3a6':'#dce8d1'} roughness={1} transparent opacity={viewMode==='walk'?.035:viewMode==='garden'?.12:.1} depthWrite={false} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
     {viewMode==='planner'&&<Grid position={[0,.02,0]} args={[240,240]} cellSize={5} cellThickness={.3} cellColor="#7f8f77" sectionSize={25} sectionThickness={.8} sectionColor="#52634e" fadeDistance={320} infiniteGrid={false}/>} 
     <Line points={boundaryPoints} color="#334e39" lineWidth={viewMode==='garden'?2:1.4}/>
@@ -148,7 +165,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
       <mesh rotation={[-Math.PI/2,0,0]} castShadow receiveShadow><extrudeGeometry args={[houseShape,{depth:10,bevelEnabled:false}]}/><meshStandardMaterial color="#d8c9b4" roughness={.9}/></mesh>
       <mesh rotation={[-Math.PI/2,0,0]} position={[0,10.05,0]} castShadow receiveShadow><extrudeGeometry args={[houseShape,{depth:1.15,bevelEnabled:false}]}/><meshStandardMaterial color="#715548" roughness={.82}/></mesh>
     </group>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,.08,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints} color="#665b4d" lineWidth={1.4}/></group>}
-    {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={plant} onDragStart={setDraggingId} />)}
+    {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
     {viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
   </>
 }
@@ -228,10 +245,11 @@ export function PlannerCanvas() {
       <span>Base imagery</span>
       <button className={imageryLayer==='detail'?'active':''} onClick={()=>setImageryLayer('detail')}><strong>2021 Detail</strong><small>6-inch · leaf-off</small></button>
       <button className={imageryLayer==='current'?'active':''} onClick={()=>setImageryLayer('current')}><strong>2024 Current</strong><small>2-foot · leaf-on</small></button>
+      <button className={imageryLayer==='solar'?'active':''} aria-pressed={imageryLayer==='solar'} onClick={()=>setImageryLayer('solar')}><strong>Solar ground</strong><small>Simulated shadows</small></button>
     </div>}
     {viewMode!=='walk'&&<><div className="canvas-hint">{armed ? 'Click the lawn to plant' : viewMode==='garden'?'Drag to orbit · Right-drag to pan · Scroll to zoom':'Drag plants to move · Right-drag to pan · Scroll to zoom'}</div>
     <div className="scale-badge">15 Pickwick Ln · 0.485 acre</div>
-    <div className="imagery-badge">{imageryLayer==='detail'?'PEMA 2021 high-resolution detail':'NAIP 2024 current context'} · approximate alignment</div>
+    <div className="imagery-badge">{imageryLayer==='solar'?'Solar ground · schematic geometry':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
     <SunPanel date={solarDate} minute={solarMinute} playing={solarPlaying} speed={solarSpeed} snapshot={solarSnapshot} onDateChange={changeDate} onMinuteChange={(minute)=>{setSolarMinute(minute);setSolarPlaying(false)}} onPlayingChange={toggleSolarPlayback} onSpeedChange={setSolarSpeed} onToday={returnToNow}/></>}
     {viewMode==='walk'&&<WalkHud/>}
   </div>

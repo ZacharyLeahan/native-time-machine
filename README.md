@@ -50,6 +50,10 @@ npm run build
 5. Switch seasons in the top toolbar.
 6. Save locally or export the complete design as JSON.
 
+Undo and Redo in the toolbar (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z or Ctrl+Y) restore planting, complete drags, duplication, deletion, import, and reset, with up to 100 edit steps in the current session. Placement, movement, duplicates and new imports reject locations outside the parcel or inside the house. Existing saved positions are retained. Imports are validated before replacement and can be undone. The first save preserves the original stored JSON under `landscape-time-machine/design/v8/backup`; saving failures are reported without discarding the active design.
+
+Choose **Solar ground** in the imagery controls for a neutral surface showing simulated shadows without permanent photographed shadows. Aerial modes also receive a separate simulated shadow overlay; their original photographed shadows remain fixed. Roof and plant geometry still determine the accuracy of simulated shade. The sky darkens after twilight.
+
 Use the solar console in the lower-right corner to choose a date, scrub the local time, or press Play to watch the sun and modeled shadows cross the property. The default representative day is July 15; the `July 15` button restores that midsummer baseline.
 
 In 3D Garden view, left-drag orbits, right-drag pans, and the mouse wheel zooms. Switch to Plan for precise overhead positioning. All internal property and plant coordinates use feet in a right-handed Three.js scene (`x` east/west, `z` north/south, `y` vertical).

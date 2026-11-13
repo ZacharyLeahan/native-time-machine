@@ -7,7 +7,7 @@ import { siteToWorld } from '../simulation/coordinates'
 import { usePlannerStore } from '../store/usePlannerStore'
 import type { PlantInstance, PlantSpecies } from '../types'
 
-interface Props { plant: PlantInstance; onDragStart: (id: string) => void }
+interface Props { plant: PlantInstance; onDragStart: (id: string) => void; onDragMove:(event:ThreeEvent<PointerEvent>)=>void }
 
 function TreeModel({ species, height, width, color, winter }: {species:PlantSpecies;height:number;width:number;color:string;winter:boolean}) {
   const understory=species.type==='Understory tree'
@@ -47,7 +47,7 @@ function PerennialModel({height,width,color,winter}:{height:number;width:number;
   return <group>{[-.32,-.12,.12,.32].map((x,index)=><group key={x} position={[x*width,0,((index%2)-.5)*width*.25]}><mesh position={[0,height*.45,0]} castShadow><cylinderGeometry args={[.035,.055,height*.9,5]}/><meshStandardMaterial color={winter?'#8f7a5f':'#4f7747'}/></mesh><mesh position={[0,height*.88,0]} scale={[width*.18,height*.16,width*.18]} castShadow><sphereGeometry args={[1,10,7]}/><meshStandardMaterial color={color} roughness={1}/></mesh></group>)}</group>
 }
 
-export function PlantSymbol({ plant, onDragStart }: Props) {
+export function PlantSymbol({ plant, onDragStart, onDragMove }: Props) {
   const year=usePlannerStore((s)=>s.year),season=usePlannerStore((s)=>s.season),viewMode=usePlannerStore((s)=>s.viewMode)
   const selected=usePlannerStore((s)=>s.selectedPlantId===plant.id),select=usePlannerStore((s)=>s.selectPlant)
   const species=catalogById.get(plant.speciesId)
@@ -55,8 +55,8 @@ export function PlantSymbol({ plant, onDragStart }: Props) {
   if(!species||!dimensions)return null
   const world=siteToWorld(plant)
   const radius=Math.max(dimensions.widthFt/2,.7),isPerennial=species.type==='Perennial',isShrub=species.type==='Shrub',color=species.palette[season],winter=season==='winter'
-  function pointerDown(event:ThreeEvent<PointerEvent>){event.stopPropagation();select(plant.id);if(viewMode==='planner')onDragStart(plant.id)}
-  return <group position={[world.x,0,world.z]} onPointerDown={pointerDown}>
+  function pointerDown(event:ThreeEvent<PointerEvent>){event.stopPropagation();if(viewMode==='walk')return;select(plant.id);if(viewMode==='planner'){(event.target as Element).setPointerCapture(event.pointerId);usePlannerStore.getState().beginMove();onDragStart(plant.id)}}
+  return <group position={[world.x,0,world.z]} onPointerDown={pointerDown} onPointerMove={onDragMove} onPointerUp={event=>{(event.target as Element).releasePointerCapture(event.pointerId);usePlannerStore.getState().endMove()}}>
     {viewMode==='planner'?<>
       <mesh position={[0,.14,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[radius,isPerennial?20:40]}/><meshStandardMaterial color={color} transparent opacity={winter?.38:.78} depthWrite={false}/></mesh>
       <mesh position={[0,.19,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[Math.max(radius-.18,.2),radius,40]}/><meshBasicMaterial color={selected?'#fff9dc':color} transparent opacity={selected?1:.65}/></mesh>
