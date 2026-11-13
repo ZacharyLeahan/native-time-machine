@@ -11,6 +11,24 @@ vi.mock('./store/usePlannerStore',async original=>{
 })
 afterEach(()=>{harness.cleanups.splice(0).forEach(cleanup=>cleanup());vi.unstubAllGlobals()})
 describe('summary keyboard isolation',()=>{
+  it('Escape cancels plan placement without changing plants and leaves Walk controls alone',()=>{
+    store.setState({design:{...defaultDesign,plants:[]},viewMode:'planner',past:[],future:[],moveBaseline:null,notice:null})
+    store.getState().placePlant('white-oak',0,0)
+    const design=store.getState().design
+    let keydown:(event:KeyboardEvent)=>void=()=>{}
+    vi.stubGlobal('window',{addEventListener:(type:string,handler:typeof keydown)=>{if(type==='keydown')keydown=handler},removeEventListener:()=>{}})
+    class ElementStub {isContentEditable=false;closest(){return null}}
+    vi.stubGlobal('HTMLElement',ElementStub)
+    App()
+    const escape={key:'Escape',target:new ElementStub()} as unknown as KeyboardEvent
+    store.getState().armSpecies('red-maple');keydown(escape)
+    expect(store.getState().armedSpeciesId).toBeNull()
+    expect(store.getState().design).toBe(design)
+    store.getState().selectPlant(design.plants[0].id);keydown(escape)
+    expect(store.getState().selectedPlantId).toBeNull()
+    store.setState({viewMode:'walk',armedSpeciesId:'red-maple'});keydown(escape)
+    expect(store.getState().armedSpeciesId).toBe('red-maple')
+  })
   it('does not undo the design behind the summary or a text field, while normal undo/redo still work',()=>{
     store.setState({design:{...defaultDesign,plants:[]},viewMode:'garden',past:[],future:[],moveBaseline:null,notice:null})
     store.getState().placePlant('white-oak',0,0)

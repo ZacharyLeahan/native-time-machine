@@ -43,12 +43,18 @@ npm run build
 
 ## How to use it
 
+The workspace uses a drafting-desk identity: warm paper, ink, clay accents, and a growth-ring mark. **Garden / Plan / Walk / Spectator** stay in the header. **Project** holds save, export, import, and reset; **Layers** holds imagery and boundary comparison; **Views** holds camera shortcuts, reset camera, and Plan's coordinate grid. Menus close on outside click or Escape. The season selector and both growth and solar playback remain independent.
+
+The library's **All plants / Plant kit** tabs show one collection at a time instead of repeating favorites. Kit order still matches the Xbox wheel. The right sidebar lists plants in the saved design; selecting one opens its live measurements, with longer distance explanations and plant notes available on demand. Escape cancels an armed species or selection in Garden and Plan. On phones, the landscape appears before the library.
+
+Under **Layers → Boundary overlay**, the default **Aerial-aligned plan** translates the entire recorded outline 14 ft south to visually register its curve and frontage with the 2021 PEMA pavement edge. Lengths, angles, house geometry, imagery, and saved plant positions do not change. **Original plan / GIS anchor** and **County GIS** retain the original reference views. Rulers use the selected overlay; planting and Walk limits continue to use County GIS. A pavement-aligned outline is a visual planning reference, not a surveyed ownership boundary. Plan automatically fits the parcel when entering the mode or resizing the view; zoom and pan remain available.
+
 1. Pick a species in the left catalog.
 2. Click in the yard to plant it.
 3. Select or drag a canopy to inspect or reposition it.
 4. Move the timeline or press Play to watch it mature.
 5. Switch seasons in the top toolbar.
-6. Save locally or export the complete design as JSON.
+6. Open Project to save locally or export the complete design as JSON.
 
 Undo and Redo in the toolbar (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z or Ctrl+Y) restore planting, complete drags, duplication, deletion, import, and reset, with up to 100 edit steps in the current session. Placement, movement, duplicates and new imports reject locations outside the parcel or inside the house. Existing saved positions are retained. Imports are validated before replacement and can be undone. The first save preserves the original stored JSON under `landscape-time-machine/design/v8/backup`; saving failures are reported without discarding the active design.
 
@@ -59,6 +65,16 @@ Use the solar console in the lower-right corner to choose a date, scrub the loca
 In 3D Garden view, left-drag orbits, right-drag pans, and the mouse wheel zooms. Switch to Plan for precise overhead positioning. All internal property and plant coordinates use feet in a right-handed Three.js scene (`x` east/west, `z` north/south, `y` vertical).
 
 ### Walk mode
+
+**Selection without moving:** Hold Xbox **View** (overlapping squares) and sweep the reticle over plants to add them to a selection, up to 12. Selected plants brighten and get numbered markers. Release View to keep the selection. Tap **Menu** (three lines) to select/deselect the aimed plant individually; a deselected plant stays deselected for the rest of that View hold. Selection alone shows distances to the displayed boundary and nearest other plant, plus site coordinates. When several are selected, pointing at a selected member focuses its measurements. No pickup is needed.
+
+**Contextual LB wheel:** With nothing selected, LB opens the favorites plant kit. With one selected, it offers precise move, whole-foot setback, duplicate, plant details, delete, and clear/cancel. With several selected, it offers boundary-parallel/perpendicular rows, even spacing, estimated mature-canopy room, whole-foot setback, and clear/cancel. Release LB to choose an action. Delete opens a review step: a fresh **A** confirms, **B** keeps the plant; Undo restores a deletion. Duplicate is also one undoable edit.
+
+**X grabs and carries:** X grabs the aimed plant or selected group. It lifts the plant and preserves its initial offset from the camera, so there is no initial horizontal jump. Walking and looking then carry it with the camera, including upward/downward look. X/RT drops at the displayed ground position as one undoable edit; B cancels back to the original positions. Menu remains stationary selection for measurements. Changing mode, losing focus, or disconnecting discards the grab preview. After focus returns, release View before starting another sweep selection. Delete review freezes both controller and mouse look.
+
+For precise placement, use the D-pad during a grab or choose **Move precisely** / an alignment action from LB. This releases the camera-following grab at its displayed position. **RS** then slides plants along/away from the straight boundary guide; **RB + RS** looks around without moving them, and **LS** still walks. In this precise mode, RS must return to neutral after a look/wheel gesture before it moves plants. **D-pad left/right** nudges along the edge; **up/down** increases/decreases setback. The first D-pad nudge rounds the group anchor and minimum guide setback to whole feet, then applies a one-foot step. Holding a direction repeats after a short delay. **LT** zooms and slows precision movement. New, unsaved plants equipped from the favorites kit retain their aim-following placement preview.
+
+The small Selection panel provides mouse/touch equivalents, an optional checklist, live guide setback, closest selected-center spacing, and Apply/Cancel. Keyboard: **M** marks the aimed plant, **G** grabs/applies a selection, **Enter** applies when not operating a focused button, arrows nudge while arranging, and holding **R** permits mouse look. Arrangement previews do not change saved placements. Invalid group destinations block the entire apply. Mature canopy room uses average catalog crown widths plus an estimated 2 ft gap; it is a planning aid. Guide offsets reference the selected straight edge, including its extension near corners; they are not necessarily the nearest curved-boundary distance. Existing County GIS planting limits and version 8 persistence remain in effect.
 
 Choose **Walk** in the top view switch to explore the landscape at a 5.6-foot eye height. Click the 3D view to capture the mouse (or drag to look if Pointer Lock is unavailable); move with **WASD** or the arrow keys, hold **Shift** to sprint, press **Esc** to release the mouse, and press **Q** to exit. With a standard Xbox-style gamepad, use the left stick to move, the right stick to look, press the left stick to sprint, and press **B** to exit. Walk mode stays inside the parcel, blocks the house and modeled trunks, and allows movement beneath tree canopies.
 
@@ -72,7 +88,7 @@ Star up to four species in the plant library to build your **Plant kit**. Those 
 
 **Esc** closes the equipment wheel without planting. The planting summary blocks background Undo/Redo shortcuts while open. Camera shortcuts adapt their orbit and clipping limits for narrow views; manual orbiting cancels the active shortcut.
 
-Select a plant in Garden or Plan to see live placement measurements: gold to the nearest point on the displayed property boundary, cyan to the nearest other plant's center. The sidebar reports the same horizontal distances and site X/Y coordinates. Walk shows these guides and a compact readout while carrying either an existing tree or an unsaved kit preview. Spectator hides them. Measurement graphics do not intercept picking, dragging or controller targeting.
+Select a plant in Garden, Plan, or Walk to see live placement measurements: gold to the nearest point on the displayed property boundary, cyan to the nearest other plant's center. The sidebar or Walk selection panel reports the same horizontal distances and site X/Y coordinates. Walk selection needs no pickup; measurements also follow movement previews and unsaved kit previews. Spectator hides them. Measurement graphics do not intercept picking, dragging or controller targeting.
 
 Measurement lines render above photo shadows and canopy circles. Their labels move aside to reduce overlap with the selected plant and view controls; Plan keeps the selected plant's identity in the sidebar so a floating name tag does not cover the rulers. Dropping in Walk commits the displayed preview position, matching the distance guides even while moving. Mouse-selected equipment also starts at your current Walk aim rather than a fixed starting location.
 
@@ -86,7 +102,7 @@ Inspired by [Embark's free-fly camera notes](https://www.reachthefinals.com/patc
 
 Hold **LB** in Walk mode for the plant equipment wheel, use **RS** to choose, then release **LB** to equip. It includes White oak, Red maple, Eastern redbud, Serviceberry, Move plants and Cancel. **X/RT** plants an equipped preview; **B** cancels a preview or wheel before exiting. The wheel pauses movement and aim. See [controller QA and research](docs/controller-qa.md) for controls, source references and test coverage.
 
-Walk controller additions: **A** makes a small jump, **LT** holds a modest zoom, **X** picks up the plant under the reticle (within 65 ft), and **X** or **RT** drops it 12 ft ahead. Held plants are transient previews; a valid drop is one undoable edit. Invalid locations remain blocked. Exiting Walk or losing focus cancels a pickup. Look input has an adjustable 25% default deadzone and a gentle response curve, with no aim recentering or inertia. Use the Walk HUD deadzone slider if a worn stick still drifts. Standard Xbox-compatible gamepad mapping is required.
+Walk controller additions: **A** makes a small jump, **LT** holds a modest zoom, **X** picks up the plant under the reticle (within 65 ft), and **X** or **RT** drops it at the displayed ground position. Held plants are transient previews; a valid drop is one undoable edit. Invalid locations remain blocked. Exiting Walk or losing focus cancels a pickup. Look input has an adjustable 25% default deadzone and a gentle response curve, with no aim recentering or inertia. Use the Walk HUD deadzone slider if a worn stick still drifts. Standard Xbox-compatible gamepad mapping is required.
 
 ```text
 src/

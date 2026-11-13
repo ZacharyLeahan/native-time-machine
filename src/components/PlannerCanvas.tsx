@@ -16,9 +16,13 @@ import { WalkControls, type WalkAimRef } from './WalkControls'
 import { SpectatorControls } from './SpectatorControls'
 import { MeasuredHouse } from './MeasuredHouse'
 import { groundHeight } from '../simulation/surface'
-import { lot49Plan, recordedLot49Boundary } from '../data/recordedLot49'
+import { displayBoundary, type BoundaryView } from '../data/displayBoundary'
 import { EquipmentWheel } from './EquipmentWheel'
 import { CameraShortcuts, CameraShortcutsRig } from './CameraShortcuts'
+import { DisclosureMenu } from './DisclosureMenu'
+import { planFraming } from '../simulation/planFraming'
+import { WalkGroupOverlay, WalkPlantingTools } from './WalkPlantingTools'
+import { ControllerGlyph } from './ControllerGlyph'
 import { CoordinateGrid, PlacementDistanceLines, PlacementMeasurementReadout } from './PlacementMeasurements'
 
 function makeHorizontalShape(points: readonly SitePoint[]) {
@@ -108,6 +112,7 @@ function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[nu
 
 function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary,walkAimRef}:{imageryLayer:ImageryLayer,solarSnapshot:SolarSnapshot,sunPath:[number,number,number][],recordedBoundary:boolean;walkAimRef:WalkAimRef}) {
   const design = usePlannerStore((s) => s.design)
+  const arrangement=usePlannerStore(s=>s.walkArrangement)
   const armed = usePlannerStore((s) => s.armedSpeciesId)
   const viewMode = usePlannerStore((s) => s.viewMode)
   const place = usePlannerStore((s) => s.placePlant)
@@ -118,9 +123,11 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary,walkAimR
   const carry=usePlannerStore(s=>s.walkCarry)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const controls = useRef<OrbitControlsImpl>(null)
-  const {gl,camera,raycaster,pointer}=useThree()
+  const {gl,camera,raycaster,pointer,size}=useThree()
   const houseShape=makeHorizontalShape(pickwickProperty.buildingFootprint)
-  const displayedBoundary=recordedBoundary?recordedLot49Boundary:pickwickProperty.boundary
+  const aligned=usePlannerStore(s=>s.aerialAligned)
+  const displayedBoundary=displayBoundary(recordedBoundary,aligned).points
+  const plan=planFraming(displayedBoundary,size.width,size.height)
   const boundaryPoints=displayedBoundary.flatMap((a,i)=>{
     const b=displayedBoundary[(i+1)%displayedBoundary.length],n=Math.ceil(Math.hypot(b.xFt-a.xFt,b.zFt-a.zFt)/2)
     return Array.from({length:n},(_,j)=>{const x=a.xFt+(b.xFt-a.xFt)*j/n,z=a.zFt+(b.zFt-a.zFt)*j/n;return [x,groundHeight(x,z)+.12,-z] as [number,number,number]})
@@ -128,13 +135,14 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary,walkAimR
   boundaryPoints.push(boundaryPoints[0])
   const houseBoundaryPoints=[...pickwickProperty.buildingFootprint,pickwickProperty.buildingFootprint[0]].map((point)=>[point.xFt,.2,-point.zFt] as [number,number,number])
   const walkObstacles=useMemo(()=>design.plants.flatMap((plant)=>{
+    if(arrangement?.original.some(p=>p.id===plant.id))return []
     const species=catalogById.get(plant.speciesId)
     if(!species||species.type==='Perennial')return []
     const dimensions=dimensionsForPlantAtYear(species,plant,year)
     const world=siteToWorld(plant)
     const radius=species.type==='Shrub'?Math.max(1.2,dimensions.widthFt*.32):Math.max(1.05,dimensions.widthFt*.05+.75)
     return [{id:plant.id,x:world.x,z:world.z,radius}]
-  }),[design.plants,year])
+  }),[design.plants,year,arrangement])
 
   useEffect(() => { controls.current?.reset() }, [resetKey])
   useEffect(()=>{
@@ -171,22 +179,27 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary,walkAimR
       ?<PerspectiveCamera key="garden-camera" makeDefault position={[170,125,190]} fov={44} near={.1} far={700}/>
       :viewMode==='walk'
         ?<PerspectiveCamera key="walk-camera" makeDefault position={[0,5.6,95]} fov={72} near={.05} far={700}/>
-        :viewMode==='spectator'?<PerspectiveCamera key="spectator-camera" makeDefault position={[170,125,190]} fov={72} near={.05} far={5000}/>:<OrthographicCamera key="plan-camera" makeDefault position={[0,150,.01]} rotation={[-1.5707,0,0]} zoom={2.3} near={.1} far={400}/>}
+        :viewMode==='spectator'?<PerspectiveCamera key="spectator-camera" makeDefault position={[170,125,190]} fov={72} near={.05} far={5000}/>:<OrthographicCamera key="plan-camera" makeDefault position={[plan.xFt,250,-plan.zFt+.01]} rotation={[-Math.PI/2,0,0]} zoom={plan.zoom} near={.1} far={600}/>}
     <SolarLighting snapshot={solarSnapshot} path={sunPath} viewMode={viewMode}/>
     <AerialContext layer={imageryLayer} onClick={onYardClick} onPointerMove={onMove}/>
     <CoordinateGrid/>
-    <Line points={boundaryPoints} color="#334e39" lineWidth={viewMode==='garden'?2:1.4}/>
+    <Line points={boundaryPoints} color="#202a24" lineWidth={4.5} transparent depthTest={false} depthWrite={false} renderOrder={20} raycast={()=>{}}/>
+    <Line points={boundaryPoints} color="#f0d27a" lineWidth={1.8} transparent depthTest={false} depthWrite={false} renderOrder={21} raycast={()=>{}}/>
     {viewMode!=='planner'?<MeasuredHouse/>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,4,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints.map(([x,,z])=>[x,4.1,z])} color="#665b4d" lineWidth={1.4}/></group>}
-    {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={carry?.id===plant.id?{...plant,xFt:carry.xFt,zFt:carry.zFt}:plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
+    {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={arrangement?.preview.find(p=>p.id===plant.id)??(carry?.id===plant.id?{...plant,xFt:carry.xFt,zFt:carry.zFt}:plant)} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
     {carry?.speciesId&&<PlantSymbol plant={{id:carry.id,speciesId:carry.speciesId,xFt:carry.xFt,zFt:carry.zFt,plantedYear:0}} onDragMove={()=>{}} onDragStart={()=>{}}/>}
     <PlacementDistanceLines/>
-    {viewMode==='spectator'?<SpectatorControls/>:viewMode==='walk'?<WalkControls obstacles={walkObstacles} aimRef={walkAimRef}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
+    <WalkGroupOverlay/>
+    {viewMode==='spectator'?<SpectatorControls/>:viewMode==='walk'?<WalkControls obstacles={walkObstacles} aimRef={walkAimRef}/>:<OrbitControls ref={controls} makeDefault target={viewMode==='garden'?[0,15,0]:[plan.xFt,0,-plan.zFt]} enableRotate={viewMode==='garden'} minZoom={.25} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
     {viewMode==='garden'&&<CameraShortcutsRig/>}
   </>
 }
 
 function WalkHud() {
   const prompt=usePlannerStore(s=>s.walkPrompt),deadzone=usePlannerStore(s=>s.lookDeadzone),setDeadzone=usePlannerStore(s=>s.setLookDeadzone)
+  const arranging=usePlannerStore(s=>Boolean(s.walkArrangement)),marked=usePlannerStore(s=>s.walkMarked.length)
+  const grabbing=usePlannerStore(s=>Boolean(s.walkArrangement?.grab))
+  const selecting=usePlannerStore(s=>s.walkSelecting),deleting=usePlannerStore(s=>Boolean(s.walkDeleteId))
   const [pointerLocked,setPointerLocked]=useState(false)
   const [controllerConnected,setControllerConnected]=useState(false)
   useEffect(()=>{
@@ -200,22 +213,25 @@ function WalkHud() {
     return()=>{document.removeEventListener('pointerlockchange',updatePointer);window.removeEventListener('gamepadconnected',updateController);window.removeEventListener('gamepaddisconnected',updateController);window.clearInterval(poll)}
   },[])
   return <div className="walk-hud" aria-live="polite">
-    <div className="walk-reticle" aria-hidden="true"><i/><i/></div>
+    <div className={`walk-reticle ${selecting?'selecting':''}`} aria-hidden="true"><i/><i/></div>
+    {selecting&&<div className="sweep-selection-status" role="status"><ControllerGlyph button="view"/> Selecting · {marked} · release View to finish</div>}
     <div className="walk-help">
-      <strong>{pointerLocked?'Mouse captured · explore the yard':'Click the landscape to capture the mouse'}</strong>
-      <span><Keyboard size={13}/> WASD / arrows move · Shift sprints · Q exits</span>
-      <span><MousePointer2 size={13}/> Mouse looks · Esc releases</span>
-      <span className={controllerConnected?'connected':''}><Gamepad2 size={14}/> LS move · RS look · L3 sprint · B cancel/exit</span>
-      <span>A jump · LT zoom · X pick up/drop · RT drop</span><span>{prompt}</span>
-      <button className="wheel-open" style={{pointerEvents:'auto'}} onClick={()=>usePlannerStore.setState({wheelOpen:true,wheelIndex:null})}>LB · Plant equipment wheel</button>
-      <label style={{pointerEvents:'auto',fontSize:10,gridColumn:'1 / -1'}}>Aim deadzone {Math.round(deadzone*100)}% <input aria-label="Controller aim deadzone" type="range" min=".1" max=".4" step=".01" value={deadzone} onChange={e=>setDeadzone(Number(e.target.value))}/></label>
+      <strong>{deleting?'Delete selection · A confirms / B cancels':selecting?'Sweep selection':grabbing?'Plant grabbed · walk and look to carry':arranging?'Precision placement':pointerLocked?'Mouse captured · explore the yard':'Click the landscape to capture the mouse'}</strong>
+      {!arranging&&<><span><Keyboard size={13}/> WASD / arrows move · Shift sprints · Q exits</span><span><MousePointer2 size={13}/> Mouse looks · Esc releases</span></>}
+      <span className={controllerConnected?'connected':''}><Gamepad2 size={14}/> {grabbing?'LS carries · RS looks and carries · X / RT drops':arranging?'LS walk · RS move plants · RB + RS look':'LS move · RS look · L3 sprint · B cancel/exit'}</span>
+      <span>{grabbing?'D-pad precise placement · B cancels grab':arranging?'D-pad 1 ft · LT slow/zoom · X / RT apply':<><ControllerGlyph button="view"/> Hold to select · <ControllerGlyph button="menu"/> Toggle one</>}</span><span>{prompt}</span>
+      <button className="wheel-open" disabled={deleting} style={{pointerEvents:'auto'}} onClick={()=>usePlannerStore.setState({wheelOpen:true,wheelIndex:null})}>{marked===1?'LB · Plant actions':marked>1?'LB · Align selection':'LB · Plant equipment wheel'}</button>
+      {!arranging&&<label style={{pointerEvents:'auto',fontSize:10,gridColumn:'1 / -1'}}>Aim deadzone {Math.round(deadzone*100)}% <input aria-label="Controller aim deadzone" type="range" min=".1" max=".4" step=".01" value={deadzone} onChange={e=>setDeadzone(Number(e.target.value))}/></label>}
     </div>
   </div>
 }
 
 export function PlannerCanvas() {
+  const arranging=usePlannerStore(s=>Boolean(s.walkArrangement))
+  const markedCount=usePlannerStore(s=>s.walkMarked.length)
   const walkAimRef=useRef({xFt:0,zFt:-83})
-  const recordedBoundary=usePlannerStore(s=>s.recordedBoundary),toggleBoundary=usePlannerStore(s=>s.toggleBoundary)
+  const recordedBoundary=usePlannerStore(s=>s.recordedBoundary),aligned=usePlannerStore(s=>s.aerialAligned),setBoundaryView=usePlannerStore(s=>s.setBoundaryView)
+  const boundary=displayBoundary(recordedBoundary,aligned)
   const armed = usePlannerStore((s)=>s.armedSpeciesId)
   const viewMode = usePlannerStore((s)=>s.viewMode)
   const [imageryLayer,setImageryLayer]=useState<ImageryLayer>('detail')
@@ -261,19 +277,17 @@ export function PlannerCanvas() {
       <YardScene imageryLayer={imageryLayer} solarSnapshot={solarSnapshot} sunPath={sunPath} recordedBoundary={recordedBoundary} walkAimRef={walkAimRef}/>
     </Canvas>
     <div className="view-badge">{viewMode==='garden'?'3D GARDEN':viewMode==='walk'?'WALK MODE':viewMode==='spectator'?'SPECTATOR · READ ONLY':'OVERHEAD PLAN'}</div>
-    {(viewMode==='garden'||viewMode==='planner')&&<CameraShortcuts/>}
     {viewMode==='planner'&&<div className="north-badge"><strong>N</strong><span>↑</span></div>}
-    {viewMode!=='walk'&&viewMode!=='spectator'&&<div className="imagery-control" role="group" aria-label="Aerial imagery layer">
+    {viewMode!=='walk'&&viewMode!=='spectator'&&<div className="scene-tools"><DisclosureMenu label="Layers"><div className="imagery-control" role="group" aria-label="Aerial imagery layer">
       <span>Base imagery</span>
       <button className={imageryLayer==='detail'?'active':''} onClick={()=>setImageryLayer('detail')}><strong>2021 Detail</strong><small>6-inch · leaf-off</small></button>
       <button className={imageryLayer==='current'?'active':''} onClick={()=>setImageryLayer('current')}><strong>2024 Current</strong><small>2-foot · leaf-on</small></button>
       <button className={imageryLayer==='solar'?'active':''} aria-pressed={imageryLayer==='solar'} onClick={()=>setImageryLayer('solar')}><strong>Solar ground</strong><small>Simulated shadows</small></button>
-    </div>}
+    </div><label className="boundary-select">Boundary overlay<select aria-label="Boundary overlay" value={boundary.view} onChange={event=>setBoundaryView(event.target.value as BoundaryView)}><option value="aerial">Aerial-aligned plan</option><option value="recorded">Original plan / GIS anchor</option><option value="gis">County GIS</option></select></label><p className="menu-note">{boundary.view==='aerial'?'Shifted 14 ft south to follow the 2021 pavement curve. Visual alignment, not a survey. ':'Original mapped alignment. '}Distances use this overlay; planting limits use County GIS.</p></DisclosureMenu><DisclosureMenu label="Views"><CameraShortcuts/><button data-close-menu onClick={()=>usePlannerStore.getState().resetCamera()}>Reset camera</button></DisclosureMenu></div>}
     {viewMode!=='walk'&&viewMode!=='spectator'&&<><div className="canvas-hint">{armed ? 'Click the lawn to plant' : viewMode==='garden'?'Drag to orbit · Right-drag to pan · Scroll to zoom':'Drag plants to move · Right-drag to pan · Scroll to zoom'}</div>
-    <button className="scale-badge" style={{pointerEvents:'auto'}} aria-label="Toggle recorded plan and county GIS boundary" aria-pressed={recordedBoundary} title={`${lot49Plan.anchor} Click to compare county GIS. Placement limits use county GIS.`} onClick={toggleBoundary}>{recordedBoundary?'Lot 49 · recorded dimensions · GIS anchor':'County GIS boundary · click to compare'}</button>
-    <div className="imagery-badge">{imageryLayer==='solar'?'LiDAR terrain + fitted roof':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
+    <div className="imagery-badge">{boundary.label} · approximate<br/>{imageryLayer==='solar'?'LiDAR terrain + fitted roof':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · fixed photo shadows`}</div>
     <SunPanel date={solarDate} minute={solarMinute} playing={solarPlaying} speed={solarSpeed} snapshot={solarSnapshot} onDateChange={changeDate} onMinuteChange={(minute)=>{setSolarMinute(minute);setSolarPlaying(false)}} onPlayingChange={toggleSolarPlayback} onSpeedChange={setSolarSpeed} onToday={returnToNow}/></>}
-    {viewMode==='walk'&&<><WalkHud/><EquipmentWheel aimRef={walkAimRef}/><PlacementMeasurementReadout compact/></>}
+    {viewMode==='walk'&&<><WalkHud/><WalkPlantingTools aimRef={walkAimRef}/><EquipmentWheel aimRef={walkAimRef}/>{!arranging&&!markedCount&&<PlacementMeasurementReadout compact/>}</>}
     {viewMode==='spectator'&&<div className="walk-hud"><div className="walk-reticle" aria-hidden="true"><i/><i/></div><div className="walk-help"><strong>Spectator · free flight · editing disabled</strong><span>WASD / arrows fly · mouse looks</span><span>Space / E up · Q / C down · Shift fast</span><span>Xbox: LS fly · RS look · RB up · LB down</span><span>L3 fast · LT zoom · B / F exit</span><span>Click to capture mouse · Esc releases</span></div></div>}
   </div>
 }

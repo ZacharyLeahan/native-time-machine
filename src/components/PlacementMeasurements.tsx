@@ -60,12 +60,12 @@ export function PlacementMeasurementReadout({compact=false}:{compact?:boolean}) 
   if(!measurements)return null
   const {subject,boundary,neighbor}=measurements
   return <section className={`placement-readout ${compact?'compact':''}`} aria-label="Placement measurements">
-    <h3>Placement distances</h3>
+    <h3>{catalogById.get('speciesId' in subject?String(subject.speciesId):'')?.commonName??'Plant'} · distances</h3>
     <dl><div><dt>{boundary?.outside?'Outside boundary':'To property boundary'}</dt><dd>{boundary?distanceLabel(boundary.distanceFt):'Unavailable'}</dd></div>
       <div><dt>Nearest plant{neighbor?` · ${catalogById.get(neighbor.plant.speciesId)?.commonName??'Plant'}`:''}</dt><dd>{neighbor?distanceLabel(neighbor.distanceFt):'No other plants'}</dd></div>
       <div><dt>Site X / Y</dt><dd>{subject.xFt.toFixed(1)} / {subject.zFt.toFixed(1)} ft</dd></div></dl>
     <p><span className="boundary-key"/> {source} · approximate alignment</p>
-    {!compact&&<p>Horizontal distances from plant centers. Cyan measures center to center, not canopy clearance. {recorded?'Placement limits still use County GIS. ':''}X = east, Y = north; origin is the existing site reference, not a surveyed corner.</p>}
+    {!compact&&<details><summary>About these distances</summary><p>Horizontal distances from plant centers. Cyan measures center to center, not canopy clearance. {recorded?'Placement limits still use County GIS. ':''}X = east, Y = north; origin is the existing site reference, not a surveyed corner.</p></details>}
   </section>
 }
 export function CoordinateGrid() {
