@@ -1,4 +1,4 @@
-"""Download the maximum-size official PEMA aerial export used by the app."""
+"""Download aspect-correct official aerial exports used by the app."""
 
 from __future__ import annotations
 
@@ -9,40 +9,61 @@ from pathlib import Path
 from PIL import Image
 
 
-SERVICE = (
-    "https://imagery.pasda.psu.edu/arcgis/rest/services/"
-    "PEMAImagery2021_2023/MapServer/export"
-)
+SERVICE_ROOT = "https://imagery.pasda.psu.edu/arcgis/rest/services/"
 BBOX_WGS84 = (-75.53185, 40.02810, -75.53065, 40.02915)
-IMAGE_SIZE = 4096
-OUTPUT = Path(__file__).resolve().parents[1] / "public" / "pickwick-pema-2021-4096.png"
+PUBLIC_DIR = Path(__file__).resolve().parents[1] / "public"
+EXPORTS = (
+    (
+        f"{SERVICE_ROOT}PEMAImagery2021_2023/MapServer/export",
+        PUBLIC_DIR / "pickwick-pema-2021-4096.png",
+        3584,
+        4096,
+        "show:3",
+    ),
+    (
+        f"{SERVICE_ROOT}pasda/NAIP2024/MapServer/export",
+        PUBLIC_DIR / "pickwick-naip-2024.png",
+        1792,
+        2048,
+        None,
+    ),
+)
 
 
-def main() -> None:
+def download(service: str, output: Path, width: int, height: int, layers: str | None) -> None:
     parameters = {
         "bbox": ",".join(str(value) for value in BBOX_WGS84),
         "bboxSR": "4326",
         "imageSR": "3857",
-        "size": f"{IMAGE_SIZE},{IMAGE_SIZE}",
+        # Match the Web Mercator aspect ratio of the requested bounds. ArcGIS
+        # otherwise pads the narrower axis, which makes the photo disagree with
+        # the parcel even though both inputs are correctly georeferenced.
+        "size": f"{width},{height}",
         "format": "png32",
         "transparent": "false",
-        "layers": "show:3",
         "f": "image",
     }
-    url = f"{SERVICE}?{urllib.parse.urlencode(parameters)}"
-    temporary = OUTPUT.with_suffix(".download.png")
+    if layers:
+        parameters["layers"] = layers
+    url = f"{service}?{urllib.parse.urlencode(parameters)}"
+    temporary = output.with_suffix(".download.png")
     try:
         urllib.request.urlretrieve(url, temporary)
         with Image.open(temporary) as image:
-            if image.size != (IMAGE_SIZE, IMAGE_SIZE):
+            if image.size != (width, height):
                 raise RuntimeError(f"Unexpected export size: {image.size}")
             extrema = image.convert("RGB").getextrema()
             if all(low == high for low, high in extrema):
                 raise RuntimeError("The imagery service returned a blank export")
-        temporary.replace(OUTPUT)
+        temporary.replace(output)
     finally:
         temporary.unlink(missing_ok=True)
-    print(OUTPUT)
+    print(output)
+
+
+def main() -> None:
+    for export in EXPORTS:
+        download(*export)
 
 
 if __name__ == "__main__":

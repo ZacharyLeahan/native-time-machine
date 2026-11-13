@@ -147,7 +147,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
     {viewMode!=='planner'?<group>
       <mesh rotation={[-Math.PI/2,0,0]} castShadow receiveShadow><extrudeGeometry args={[houseShape,{depth:10,bevelEnabled:false}]}/><meshStandardMaterial color="#d8c9b4" roughness={.9}/></mesh>
       <mesh rotation={[-Math.PI/2,0,0]} position={[0,10.05,0]} castShadow receiveShadow><extrudeGeometry args={[houseShape,{depth:1.15,bevelEnabled:false}]}/><meshStandardMaterial color="#715548" roughness={.82}/></mesh>
-    </group>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,.08,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd"/></mesh><Line points={houseBoundaryPoints} color="#766b5c" lineWidth={1}/></group>}
+    </group>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,.08,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints} color="#665b4d" lineWidth={1.4}/></group>}
     {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={plant} onDragStart={setDraggingId} />)}
     {viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
   </>
