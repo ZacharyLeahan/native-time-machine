@@ -64,6 +64,8 @@ Choose **Walk** in the top view switch to explore the landscape at a 5.6-foot ey
 
 ## Architecture
 
+Hold **LB** in Walk mode for the plant equipment wheel, use **RS** to choose, then release **LB** to equip. It includes White oak, Red maple, Eastern redbud, Serviceberry, Move plants and Cancel. **X/RT** plants an equipped preview; **B** cancels a preview or wheel before exiting. The wheel pauses movement and aim. See [controller QA and research](docs/controller-qa.md) for controls, source references and test coverage.
+
 Walk controller additions: **A** makes a small jump, **LT** holds a modest zoom, **X** picks up the plant under the reticle (within 65 ft), and **X** or **RT** drops it 12 ft ahead. Held plants are transient previews; a valid drop is one undoable edit. Invalid locations remain blocked. Exiting Walk or losing focus cancels a pickup. Look input has an adjustable 25% default deadzone and a gentle response curve, with no aim recentering or inertia. Use the Walk HUD deadzone slider if a worn stick still drifts. Standard Xbox-compatible gamepad mapping is required.
 
 ```text

@@ -6,6 +6,38 @@ import { placementError } from '../simulation/placement'
 beforeEach(()=>store.setState({design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
 afterEach(()=>vi.unstubAllGlobals())
 describe('design editing',()=>{
+  it('leaves the design and undo history untouched when the wheel is cancelled or a drop is invalid',()=>{
+    const original=store.getState().design
+    store.getState().chooseEquipment(1,0,0)
+    expect(store.getState().dropCarried(999,999,0,0)).toBe(false)
+    expect(store.getState().design).toBe(original)
+    expect(store.getState().past).toHaveLength(0)
+    store.getState().chooseEquipment(null,0,0)
+    expect(store.getState().walkCarry?.speciesId).toBe('red-maple')
+    store.getState().chooseEquipment(5,0,0)
+    expect(store.getState().walkCarry).toBeNull()
+    expect(store.getState().design).toBe(original)
+  })
+  it('equips a wheel plant without saving it, then plants once and supports undo',()=>{
+    const original=store.getState().design
+    store.getState().chooseEquipment(0,0,0)
+    expect(store.getState().design).toBe(original)
+    expect(store.getState().dropCarried(0,0,0,-10)).toBe(true)
+    expect(store.getState().design.plants).toHaveLength(1)
+    expect(store.getState().dropCarried(0,0,0,-10)).toBe(false)
+    store.getState().undo();expect(store.getState().design).toBe(original)
+  })
+  it('rejects a drop through the house and preserves a held tree until cancel',()=>{
+    store.getState().placePlant('white-oak',0,0)
+    const original=store.getState().design,id=original.plants[0].id
+    store.setState({walkCarry:{id,xFt:0,zFt:0}})
+    expect(store.getState().dropCarried(0,0,0,-80)).toBe(false)
+    expect(store.getState().design).toBe(original)
+    expect(store.getState().walkCarry?.id).toBe(id)
+    store.getState().chooseEquipment(5,0,0)
+    expect(store.getState().walkCarry).toBeNull()
+    expect(store.getState().design).toBe(original)
+  })
   it('keeps carry previews out of the saved design, drops undoably, and cancels on exit',()=>{
     store.getState().placePlant('white-oak',0,0)
     const original=store.getState().design,id=original.plants[0].id

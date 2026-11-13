@@ -16,6 +16,7 @@ import { WalkControls } from './WalkControls'
 import { MeasuredHouse } from './MeasuredHouse'
 import { groundHeight } from '../simulation/surface'
 import { lot49Plan, recordedLot49Boundary } from '../data/recordedLot49'
+import { EquipmentWheel } from './EquipmentWheel'
 
 function makeHorizontalShape(points: readonly SitePoint[]) {
   const shape=new Shape()
@@ -174,6 +175,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imager
     <Line points={boundaryPoints} color="#334e39" lineWidth={viewMode==='garden'?2:1.4}/>
     {viewMode!=='planner'?<MeasuredHouse/>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,4,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints.map(([x,,z])=>[x,4.1,z])} color="#665b4d" lineWidth={1.4}/></group>}
     {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={carry?.id===plant.id?{...plant,xFt:carry.xFt,zFt:carry.zFt}:plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
+    {carry?.speciesId&&<PlantSymbol plant={{id:carry.id,speciesId:carry.speciesId,xFt:carry.xFt,zFt:carry.zFt,plantedYear:0}} onDragMove={()=>{}} onDragStart={()=>{}}/>}
     {viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
   </>
 }
@@ -198,8 +200,9 @@ function WalkHud() {
       <strong>{pointerLocked?'Mouse captured · explore the yard':'Click the landscape to capture the mouse'}</strong>
       <span><Keyboard size={13}/> WASD / arrows move · Shift sprints · Q exits</span>
       <span><MousePointer2 size={13}/> Mouse looks · Esc releases</span>
-      <span className={controllerConnected?'connected':''}><Gamepad2 size={14}/> LS move · RS look · L3 sprint · B exits</span>
+      <span className={controllerConnected?'connected':''}><Gamepad2 size={14}/> LS move · RS look · L3 sprint · B cancel/exit</span>
       <span>A jump · LT zoom · X pick up/drop · RT drop</span><span>{prompt}</span>
+      <button className="wheel-open" style={{pointerEvents:'auto'}} onClick={()=>usePlannerStore.setState({wheelOpen:true,wheelIndex:null})}>LB · Plant equipment wheel</button>
       <label style={{pointerEvents:'auto',fontSize:10,gridColumn:'1 / -1'}}>Aim deadzone {Math.round(deadzone*100)}% <input aria-label="Controller aim deadzone" type="range" min=".1" max=".4" step=".01" value={deadzone} onChange={e=>setDeadzone(Number(e.target.value))}/></label>
     </div>
   </div>
@@ -263,6 +266,6 @@ export function PlannerCanvas() {
     <button className="scale-badge" style={{pointerEvents:'auto'}} aria-label="Toggle recorded plan and county GIS boundary" aria-pressed={recordedBoundary} title={`${lot49Plan.anchor} Click to compare county GIS. Placement limits use county GIS.`} onClick={()=>setRecordedBoundary(value=>!value)}>{recordedBoundary?'Lot 49 · recorded dimensions · GIS anchor':'County GIS boundary · click to compare'}</button>
     <div className="imagery-badge">{imageryLayer==='solar'?'LiDAR terrain + fitted roof':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
     <SunPanel date={solarDate} minute={solarMinute} playing={solarPlaying} speed={solarSpeed} snapshot={solarSnapshot} onDateChange={changeDate} onMinuteChange={(minute)=>{setSolarMinute(minute);setSolarPlaying(false)}} onPlayingChange={toggleSolarPlayback} onSpeedChange={setSolarSpeed} onToday={returnToNow}/></>}
-    {viewMode==='walk'&&<WalkHud/>}
+    {viewMode==='walk'&&<><WalkHud/><EquipmentWheel/></>}
   </div>
 }
