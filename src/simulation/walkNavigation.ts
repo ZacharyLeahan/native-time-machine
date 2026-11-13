@@ -1,6 +1,18 @@
 import { pickwickProperty, type SitePoint } from '../data/pickwickProperty'
 
-export interface WalkObstacle { x: number; z: number; radius: number }
+export interface WalkObstacle { x: number; z: number; radius: number; id?:string }
+
+export function lookStick(value:number,deadzone=.25):number {
+  const input=applyStickDeadzone(Number.isFinite(value)?Math.max(-1,Math.min(1,value)):0,deadzone)
+  return Math.sign(input)*Math.abs(input)**1.35
+}
+
+export function jumpStep(height:number,velocity:number,delta:number,jump:boolean){
+  if(jump&&height<=0)velocity=9
+  velocity-=24*delta
+  const next=height+velocity*delta
+  return next<=0?{height:0,velocity:0}:{height:next,velocity}
+}
 
 export function applyStickDeadzone(value:number,deadzone=.14):number {
   const magnitude=Math.abs(value)

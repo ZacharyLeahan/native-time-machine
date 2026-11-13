@@ -6,6 +6,19 @@ import { placementError } from '../simulation/placement'
 beforeEach(()=>store.setState({design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
 afterEach(()=>vi.unstubAllGlobals())
 describe('design editing',()=>{
+  it('keeps carry previews out of the saved design, drops undoably, and cancels on exit',()=>{
+    store.getState().placePlant('white-oak',0,0)
+    const original=store.getState().design,id=original.plants[0].id
+    store.setState({walkCarry:{id,xFt:10,zFt:0}})
+    expect(store.getState().design).toBe(original)
+    store.getState().movePlant(id,10,0)
+    store.setState({walkCarry:null})
+    store.getState().undo();expect(store.getState().design).toBe(original)
+    store.setState({walkCarry:{id,xFt:20,zFt:0}})
+    store.getState().setViewMode('garden')
+    expect(store.getState().walkCarry).toBeNull()
+    expect(store.getState().design).toBe(original)
+  })
   it('reports save failures without modifying the current design',()=>{
     store.getState().placePlant('white-oak',0,0)
     const original=store.getState().design

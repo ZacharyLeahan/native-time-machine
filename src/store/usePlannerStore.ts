@@ -6,6 +6,7 @@ import type { PlantInstance, PropertyDesign, Season } from '../types'
 
 export type ViewMode = 'garden' | 'planner' | 'walk'
 interface PlannerState {
+  walkCarry:{id:string;xFt:number;zFt:number}|null; walkPrompt:string; lookDeadzone:number; setLookDeadzone:(value:number)=>void
   design: PropertyDesign; year: number; season: Season; viewMode: ViewMode; selectedPlantId: string | null; armedSpeciesId: string | null; cameraResetKey: number; notice: string | null
   past: PropertyDesign[]; future: PropertyDesign[]; moveBaseline: PropertyDesign | null; saveStatus: string
   setYear:(year:number)=>void; setSeason:(season:Season)=>void; setViewMode:(mode:ViewMode)=>void; armSpecies:(id:string|null)=>void; selectPlant:(id:string|null)=>void
@@ -21,10 +22,11 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
   }
   const save=()=>{try{saveDesign(get().design);set({saveStatus:'Saved locally'})}catch{set({saveStatus:'Could not save — export a backup',notice:'Local saving failed. Export your design to keep a backup.'})}}
   return {
+    walkCarry:null,walkPrompt:'Aim at a plant · X picks up',lookDeadzone:.25,setLookDeadzone:value=>set({lookDeadzone:Math.max(.1,Math.min(.4,value))}),
     design:initialDesign,year:10,season:'summer',viewMode:'garden',selectedPlantId:null,armedSpeciesId:null,cameraResetKey:0,notice:null,
     past:[],future:[],moveBaseline:null,saveStatus:'Saved locally',
     setYear:year=>set({year}),setSeason:season=>set({season}),
-    setViewMode:viewMode=>{get().endMove();set({viewMode,cameraResetKey:get().cameraResetKey+1,armedSpeciesId:viewMode==='walk'?null:get().armedSpeciesId})},
+    setViewMode:viewMode=>{get().endMove();set({viewMode,walkCarry:null,cameraResetKey:get().cameraResetKey+1,armedSpeciesId:viewMode==='walk'?null:get().armedSpeciesId})},
     armSpecies:armedSpeciesId=>set({armedSpeciesId,selectedPlantId:null}),selectPlant:selectedPlantId=>set({selectedPlantId,armedSpeciesId:null}),
     placePlant:(speciesId,xFt,zFt)=>{
       const error=placementError(xFt,zFt)

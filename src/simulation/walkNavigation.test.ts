@@ -1,7 +1,27 @@
 import { describe,expect,it } from 'vitest'
-import { applyStickDeadzone, isPointInsidePolygon, isWalkPositionAllowed, walkDelta } from './walkNavigation'
+import { applyStickDeadzone, lookStick, jumpStep, isPointInsidePolygon, isWalkPositionAllowed, walkDelta } from './walkNavigation'
 
 describe('walk navigation',()=>{
+  it('holds aim exactly still throughout neutral stick jitter',()=>{
+    let pitch=0
+    for(let i=0;i<600;i++)pitch+=lookStick(Math.sin(i)*.24)*1.7/60
+    expect(pitch).toBe(0)
+    expect(lookStick(.5)).toBeGreaterThan(0)
+    expect(lookStick(-1)).toBe(-1)
+    expect(lookStick(1)).toBe(1)
+    expect(lookStick(.32,.35)).toBe(0)
+    expect(lookStick(Number.NaN)).toBe(0)
+  })
+  it('jumps modestly, cannot jump again in midair, and lands on the ground',()=>{
+    let state={height:0,velocity:0},peak=0
+    for(let i=0;i<120;i++){
+      state=jumpStep(state.height,state.velocity,1/60,i===0||i===10)
+      peak=Math.max(peak,state.height)
+    }
+    expect(peak).toBeGreaterThan(1.4)
+    expect(peak).toBeLessThan(1.8)
+    expect(state).toEqual({height:0,velocity:0})
+  })
   it('filters controller drift and rescales deliberate stick input',()=>{
     expect(applyStickDeadzone(.08)).toBe(0)
     expect(applyStickDeadzone(-.14)).toBe(0)

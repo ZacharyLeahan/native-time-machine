@@ -111,6 +111,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imager
   const select = usePlannerStore((s) => s.selectPlant)
   const resetKey = usePlannerStore((s) => s.cameraResetKey)
   const year = usePlannerStore((s) => s.year)
+  const carry=usePlannerStore(s=>s.walkCarry)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const controls = useRef<OrbitControlsImpl>(null)
   const {gl,camera,raycaster,pointer}=useThree()
@@ -128,7 +129,7 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imager
     const dimensions=dimensionsForPlantAtYear(species,plant,year)
     const world=siteToWorld(plant)
     const radius=species.type==='Shrub'?Math.max(1.2,dimensions.widthFt*.32):Math.max(1.05,dimensions.widthFt*.05+.75)
-    return [{x:world.x,z:world.z,radius}]
+    return [{id:plant.id,x:world.x,z:world.z,radius}]
   }),[design.plants,year])
 
   useEffect(() => { controls.current?.reset() }, [resetKey])
@@ -172,12 +173,13 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imager
     {viewMode==='planner'&&<Grid position={[0,.02,0]} args={[240,240]} cellSize={5} cellThickness={.3} cellColor="#7f8f77" sectionSize={25} sectionThickness={.8} sectionColor="#52634e" fadeDistance={320} infiniteGrid={false}/>} 
     <Line points={boundaryPoints} color="#334e39" lineWidth={viewMode==='garden'?2:1.4}/>
     {viewMode!=='planner'?<MeasuredHouse/>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,4,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints.map(([x,,z])=>[x,4.1,z])} color="#665b4d" lineWidth={1.4}/></group>}
-    {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
+    {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={carry?.id===plant.id?{...plant,xFt:carry.xFt,zFt:carry.zFt}:plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
     {viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
   </>
 }
 
 function WalkHud() {
+  const prompt=usePlannerStore(s=>s.walkPrompt),deadzone=usePlannerStore(s=>s.lookDeadzone),setDeadzone=usePlannerStore(s=>s.setLookDeadzone)
   const [pointerLocked,setPointerLocked]=useState(false)
   const [controllerConnected,setControllerConnected]=useState(false)
   useEffect(()=>{
@@ -196,7 +198,9 @@ function WalkHud() {
       <strong>{pointerLocked?'Mouse captured · explore the yard':'Click the landscape to capture the mouse'}</strong>
       <span><Keyboard size={13}/> WASD / arrows move · Shift sprints · Q exits</span>
       <span><MousePointer2 size={13}/> Mouse looks · Esc releases</span>
-      <span className={controllerConnected?'connected':''}><Gamepad2 size={14}/> {controllerConnected?'Xbox controller connected':'Xbox: left stick move · right stick look · L3 sprint · B exits'}</span>
+      <span className={controllerConnected?'connected':''}><Gamepad2 size={14}/> LS move · RS look · L3 sprint · B exits</span>
+      <span>A jump · LT zoom · X pick up/drop · RT drop</span><span>{prompt}</span>
+      <label style={{pointerEvents:'auto',fontSize:10,gridColumn:'1 / -1'}}>Aim deadzone {Math.round(deadzone*100)}% <input aria-label="Controller aim deadzone" type="range" min=".1" max=".4" step=".01" value={deadzone} onChange={e=>setDeadzone(Number(e.target.value))}/></label>
     </div>
   </div>
 }
