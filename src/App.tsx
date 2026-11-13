@@ -19,5 +19,5 @@ export default function App(){
     window.addEventListener('keydown',shortcut);return()=>window.removeEventListener('keydown',shortcut)
   },[])
   useEffect(()=>{if(!notice)return;const id=setTimeout(clear,2600);return()=>clearTimeout(id)},[notice,clear])
-  return <div className={`app-shell ${viewMode==='walk'?'walk-active':''}`}><Toolbar/><main className={`workspace ${viewMode==='walk'?'walk-mode':''}`}><CatalogPanel/><PlannerCanvas/><DetailsPanel/></main><Timeline/>{notice&&<div className="toast" role="status">{notice}</div>}</div>
+  return <div className={`app-shell ${(viewMode==='walk'||viewMode==='spectator')?'walk-active':''}`}><Toolbar/><main className={`workspace ${(viewMode==='walk'||viewMode==='spectator')?'walk-mode':''}`}><CatalogPanel/><PlannerCanvas/><DetailsPanel/></main><Timeline/>{notice&&<div className="toast" role="status">{notice}</div>}</div>
 }

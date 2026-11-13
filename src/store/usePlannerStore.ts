@@ -7,7 +7,7 @@ import { equipmentItems } from '../simulation/controller'
 import { isPointInsidePolygon } from '../simulation/walkNavigation'
 import { pickwickProperty } from '../data/pickwickProperty'
 
-export type ViewMode = 'garden' | 'planner' | 'walk'
+export type ViewMode = 'garden' | 'planner' | 'walk' | 'spectator'
 interface PlannerState {
   walkCarry:{id:string;xFt:number;zFt:number;speciesId?:string}|null; walkPrompt:string; lookDeadzone:number; setLookDeadzone:(value:number)=>void
   wheelOpen:boolean;wheelIndex:number|null; chooseEquipment:(index:number|null,xFt:number,zFt:number)=>void; dropCarried:(xFt:number,zFt:number,playerX:number,playerZ:number)=>boolean
@@ -21,6 +21,7 @@ interface PlannerState {
 const initialDesign = typeof localStorage === 'undefined' ? defaultDesign : loadDesign()
 export const usePlannerStore = create<PlannerState>((set,get)=>{
   const commit=(design:PropertyDesign)=>{
+    if(get().viewMode==='spectator')return
     get().endMove()
     set(s=>({design,past:[...s.past,s.design].slice(-100),future:[],saveStatus:'Saving…'}))
   }
@@ -28,11 +29,13 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
   return {
     wheelOpen:false,wheelIndex:null,
     chooseEquipment:(index,xFt,zFt)=>{
+      if(get().viewMode==='spectator')return
       if(index===null){set({wheelOpen:false,wheelIndex:null});return}
       const item=equipmentItems[index];if(!item)return
       set({wheelOpen:false,wheelIndex:null,walkCarry:item.speciesId?{id:'walk-preview',speciesId:item.speciesId,xFt,zFt}:null,walkPrompt:item.speciesId?`${item.label} ready · X / RT plant`:index===4?'Aim at a plant · X picks up':'Selection cancelled'})
     },
     dropCarried:(xFt,zFt,playerX,playerZ)=>{
+      if(get().viewMode==='spectator')return false
       const carry=get().walkCarry;if(!carry)return false
       let error=placementError(xFt,zFt)
       const steps=Math.max(1,Math.ceil(Math.hypot(xFt-playerX,zFt-playerZ)))
@@ -45,9 +48,10 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
     design:initialDesign,year:10,season:'summer',viewMode:'garden',selectedPlantId:null,armedSpeciesId:null,cameraResetKey:0,notice:null,
     past:[],future:[],moveBaseline:null,saveStatus:'Saved locally',
     setYear:year=>set({year}),setSeason:season=>set({season}),
-    setViewMode:viewMode=>{get().endMove();set({viewMode,walkCarry:null,wheelOpen:false,wheelIndex:null,cameraResetKey:get().cameraResetKey+1,armedSpeciesId:viewMode==='walk'?null:get().armedSpeciesId})},
+    setViewMode:viewMode=>{get().endMove();set({viewMode,walkCarry:null,wheelOpen:false,wheelIndex:null,cameraResetKey:get().cameraResetKey+1,armedSpeciesId:viewMode==='walk'||viewMode==='spectator'?null:get().armedSpeciesId,selectedPlantId:viewMode==='spectator'?null:get().selectedPlantId})},
     armSpecies:armedSpeciesId=>set({armedSpeciesId,selectedPlantId:null}),selectPlant:selectedPlantId=>set({selectedPlantId,armedSpeciesId:null}),
     placePlant:(speciesId,xFt,zFt)=>{
+      if(get().viewMode==='spectator')return
       const error=placementError(xFt,zFt)
       if(error||!catalogById.has(speciesId)){set({notice:error??'Choose a known species.'});return}
       const plant:PlantInstance={id:crypto.randomUUID(),speciesId,xFt,zFt,plantedYear:0}
@@ -56,6 +60,7 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
     beginMove:()=>{if(!get().moveBaseline)set({moveBaseline:get().design})},
     endMove:()=>{const s=get();if(!s.moveBaseline)return;set({past:s.moveBaseline===s.design?s.past:[...s.past,s.moveBaseline].slice(-100),future:s.moveBaseline===s.design?s.future:[],moveBaseline:null})},
     movePlant:(id,xFt,zFt)=>{
+      if(get().viewMode==='spectator')return
       const error=placementError(xFt,zFt)
       if(error){set({notice:error});return}
       const s=get(),plant=s.design.plants.find(p=>p.id===id)
@@ -63,8 +68,9 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
       const design={...s.design,plants:s.design.plants.map(p=>p.id===id?{...p,xFt,zFt}:p)}
       if(s.moveBaseline)set({design,saveStatus:'Saving…'});else commit(design)
     },
-    deletePlant:id=>{const s=get();if(!s.design.plants.some(p=>p.id===id))return;commit({...s.design,plants:s.design.plants.filter(p=>p.id!==id)});set({selectedPlantId:null})},
+    deletePlant:id=>{const s=get();if(s.viewMode==='spectator'||!s.design.plants.some(p=>p.id===id))return;commit({...s.design,plants:s.design.plants.filter(p=>p.id!==id)});set({selectedPlantId:null})},
     duplicatePlant:id=>{
+      if(get().viewMode==='spectator')return
       const s=get(),source=s.design.plants.find(p=>p.id===id);if(!source)return
       for(const radius of [5,10,15,20])for(let i=0;i<8;i++){
         const xFt=source.xFt+Math.cos(i*Math.PI/4)*radius,zFt=source.zFt+Math.sin(i*Math.PI/4)*radius
@@ -73,11 +79,11 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
       }
       set({notice:'No valid nearby position found for a duplicate.'})
     },
-    undo:()=>{get().endMove();const s=get(),design=s.past.at(-1);if(!design)return;set({design,past:s.past.slice(0,-1),future:[s.design,...s.future],selectedPlantId:null,armedSpeciesId:null,saveStatus:'Saving…'})},
-    redo:()=>{get().endMove();const s=get(),design=s.future[0];if(!design)return;set({design,past:[...s.past,s.design],future:s.future.slice(1),selectedPlantId:null,armedSpeciesId:null,saveStatus:'Saving…'})},
+    undo:()=>{if(get().viewMode==='spectator')return;get().endMove();const s=get(),design=s.past.at(-1);if(!design)return;set({design,past:s.past.slice(0,-1),future:[s.design,...s.future],selectedPlantId:null,armedSpeciesId:null,saveStatus:'Saving…'})},
+    redo:()=>{if(get().viewMode==='spectator')return;get().endMove();const s=get(),design=s.future[0];if(!design)return;set({design,past:[...s.past,s.design],future:s.future.slice(1),selectedPlantId:null,armedSpeciesId:null,saveStatus:'Saving…'})},
     resetCamera:()=>set(s=>({cameraResetKey:s.cameraResetKey+1})),
     resetDesign:()=>{commit({...defaultDesign,plants:[]});set({selectedPlantId:null,armedSpeciesId:null,notice:'Design reset. Undo restores it.'})},
-    importDesign:json=>{const design=parseDesign(json);commit(design);set({selectedPlantId:null,armedSpeciesId:null,notice:'Design imported. Undo restores the previous design.'})},
+    importDesign:json=>{if(get().viewMode==='spectator')return;const design=parseDesign(json);commit(design);set({selectedPlantId:null,armedSpeciesId:null,notice:'Design imported. Undo restores the previous design.'})},
     persist:save,autosave:save,clearNotice:()=>set({notice:null}),
   }
 })

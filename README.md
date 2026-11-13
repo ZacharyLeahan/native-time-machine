@@ -64,6 +64,12 @@ Choose **Walk** in the top view switch to explore the landscape at a 5.6-foot ey
 
 ## Architecture
 
+### Spectator mode
+
+Choose **Spectator** for unrestricted camera flight without plant editing, collision, gravity, or parcel constraints. Mouse look uses capture or drag; WASD/arrows fly toward the camera direction, Space/E ascends vertically, Q/C descends, Shift flies faster, and F exits. On a standard Xbox controller use LS to fly, RS to look, RB up, LB down, L3 fast flight, LT zoom, and B exit. Reset view restores the overview. Planting, carrying, equipment, deletion, importing, resetting the design and undo/redo are blocked while spectating. Camera position is transient and never changes saved plant coordinates.
+
+Inspired by [Embark's free-fly camera notes](https://www.reachthefinals.com/patchnotes/600), including ascent relative to the world rather than the look direction. Xbox mappings here are an adaptation for this planner.
+
 Hold **LB** in Walk mode for the plant equipment wheel, use **RS** to choose, then release **LB** to equip. It includes White oak, Red maple, Eastern redbud, Serviceberry, Move plants and Cancel. **X/RT** plants an equipped preview; **B** cancels a preview or wheel before exiting. The wheel pauses movement and aim. See [controller QA and research](docs/controller-qa.md) for controls, source references and test coverage.
 
 Walk controller additions: **A** makes a small jump, **LT** holds a modest zoom, **X** picks up the plant under the reticle (within 65 ft), and **X** or **RT** drops it 12 ft ahead. Held plants are transient previews; a valid drop is one undoable edit. Invalid locations remain blocked. Exiting Walk or losing focus cancels a pickup. Look input has an adjustable 25% default deadzone and a gentle response curve, with no aim recentering or inertia. Use the Walk HUD deadzone slider if a worn stick still drifts. Standard Xbox-compatible gamepad mapping is required.

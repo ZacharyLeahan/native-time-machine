@@ -57,7 +57,7 @@ export function PlantSymbol({ plant, onDragStart, onDragMove }: Props) {
   const world=siteToWorld(plant)
   const lifted=usePlannerStore.getState().walkCarry?.id===plant.id ? .8 : 0
   const radius=Math.max(dimensions.widthFt/2,.7),isPerennial=species.type==='Perennial',isShrub=species.type==='Shrub',color=species.palette[season],winter=season==='winter'
-  function pointerDown(event:ThreeEvent<PointerEvent>){event.stopPropagation();if(viewMode==='walk')return;select(plant.id);if(viewMode==='planner'){(event.target as Element).setPointerCapture(event.pointerId);usePlannerStore.getState().beginMove();onDragStart(plant.id)}}
+  function pointerDown(event:ThreeEvent<PointerEvent>){event.stopPropagation();if(viewMode==='walk'||viewMode==='spectator')return;select(plant.id);if(viewMode==='planner'){(event.target as Element).setPointerCapture(event.pointerId);usePlannerStore.getState().beginMove();onDragStart(plant.id)}}
   return <group userData={{plantId:plant.id}} position={[world.x,groundHeight(plant.xFt,plant.zFt)+lifted,world.z]} onPointerDown={pointerDown} onPointerMove={onDragMove} onPointerUp={event=>{(event.target as Element).releasePointerCapture(event.pointerId);usePlannerStore.getState().endMove()}}>
     {viewMode==='planner'?<>
       <mesh position={[0,.14,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[radius,isPerennial?20:40]}/><meshStandardMaterial color={color} transparent opacity={winter?.38:.78} depthWrite={false}/></mesh>
@@ -67,6 +67,6 @@ export function PlantSymbol({ plant, onDragStart, onDragMove }: Props) {
       {isPerennial?<PerennialModel height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>:isShrub?<ShrubModel height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>:<TreeModel species={species} height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>} 
       <mesh position={[0,.05,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[Math.max(radius-.14,.2),radius,48]}/><meshBasicMaterial color={selected?'#f8da65':plant.origin?.startsWith('existing-')?'#d2b450':'#365e42'} transparent opacity={selected ? .95 : plant.origin?.startsWith('existing-') ? .42 : .22}/></mesh>
     </>}
-    {selected&&viewMode!=='walk'&&<Html center position={[0,viewMode==='planner'?.7:dimensions.heightFt+2,0]} style={{pointerEvents:'none'}}><div className="plant-label"><strong>{species.commonName}</strong><span>{dimensions.widthFt.toFixed(0)} ft canopy · {dimensions.heightFt.toFixed(0)} ft tall</span></div></Html>}
+    {selected&&viewMode!=='walk'&&viewMode!=='spectator'&&<Html center position={[0,viewMode==='planner'?.7:dimensions.heightFt+2,0]} style={{pointerEvents:'none'}}><div className="plant-label"><strong>{species.commonName}</strong><span>{dimensions.widthFt.toFixed(0)} ft canopy · {dimensions.heightFt.toFixed(0)} ft tall</span></div></Html>}
   </group>
 }

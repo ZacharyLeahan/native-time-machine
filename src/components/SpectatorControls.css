@@ -1,0 +1,2 @@
+.view-switch button{white-space:nowrap}
+@media(max-width:1600px){.toolbar-actions .secondary-action-label{display:none}.toolbar{gap:10px}.toolbar-actions button{padding:0 7px}.history-controls small{display:none}.seasons button{padding:8px 9px}}

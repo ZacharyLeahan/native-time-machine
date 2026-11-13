@@ -3,9 +3,25 @@ import { usePlannerStore as store } from './usePlannerStore'
 import { defaultDesign } from '../persistence/design'
 import { placementError } from '../simulation/placement'
 
-beforeEach(()=>store.setState({design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
+beforeEach(()=>store.setState({viewMode:'garden',design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
 afterEach(()=>vi.unstubAllGlobals())
 describe('design editing',()=>{
+  it('blocks every design mutation and equipment action in spectator mode',()=>{
+    store.getState().placePlant('white-oak',0,0)
+    const original=store.getState().design,id=original.plants[0].id
+    store.getState().setViewMode('spectator')
+    const history=store.getState().past.length
+    store.getState().placePlant('red-maple',10,0)
+    store.getState().movePlant(id,20,0)
+    store.getState().duplicatePlant(id);store.getState().deletePlant(id)
+    store.getState().undo();store.getState().redo();store.getState().resetDesign()
+    store.getState().importDesign(JSON.stringify(defaultDesign))
+    store.getState().chooseEquipment(0,0,0)
+    expect(store.getState().dropCarried(10,0,0,0)).toBe(false)
+    expect(store.getState().design).toBe(original)
+    expect(store.getState().past).toHaveLength(history)
+    expect(store.getState().walkCarry).toBeNull()
+  })
   it('leaves the design and undo history untouched when the wheel is cancelled or a drop is invalid',()=>{
     const original=store.getState().design
     store.getState().chooseEquipment(1,0,0)
