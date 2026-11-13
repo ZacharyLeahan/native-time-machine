@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { MathUtils } from 'three'
 import { applyStickDeadzone, isWalkPositionAllowed, walkDelta, type WalkObstacle } from '../simulation/walkNavigation'
 import { usePlannerStore } from '../store/usePlannerStore'
+import { groundHeight } from '../simulation/surface'
 
 const EYE_HEIGHT_FT=5.6
 const START_POSITION={x:0,z:95}
@@ -102,7 +103,7 @@ export function WalkControls({obstacles}:{obstacles:readonly WalkObstacle[]}) {
       if(isWalkPositionAllowed(camera.position.x,nextZ,obstacles))camera.position.z=nextZ
       stride.current+=delta*(sprint?12:8)
     }
-    camera.position.y=EYE_HEIGHT_FT+(moving?Math.sin(stride.current)*.055:0)
+    camera.position.y=groundHeight(camera.position.x,-camera.position.z)+EYE_HEIGHT_FT+(moving?Math.sin(stride.current)*.055:0)
   })
   return null
 }

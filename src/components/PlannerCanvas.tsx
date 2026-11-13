@@ -1,4 +1,4 @@
-import { Grid, Line, OrbitControls, OrthographicCamera, PerspectiveCamera, Sky, SoftShadows, useTexture } from '@react-three/drei'
+import { Grid, Line, OrbitControls, OrthographicCamera, PerspectiveCamera, Sky, useTexture } from '@react-three/drei'
 import { Canvas, type ThreeEvent, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BufferGeometry, DoubleSide, Float32BufferAttribute, LinearFilter, LinearMipmapLinearFilter, MOUSE, Shape, SRGBColorSpace } from 'three'
@@ -13,6 +13,8 @@ import { PlantSymbol } from './PlantSymbol'
 import { SunPanel } from './SunPanel'
 import { calculateSolarSnapshot, localDateString, sampleSunPath, type SolarSnapshot } from '../simulation/solar'
 import { WalkControls } from './WalkControls'
+import { MeasuredHouse } from './MeasuredHouse'
+import { groundHeight } from '../simulation/surface'
 
 function makeHorizontalShape(points: readonly SitePoint[]) {
   const shape=new Shape()
@@ -30,15 +32,23 @@ const AERIAL_CORNERS = [
 
 type ImageryLayer = 'detail' | 'current' | 'solar'
 
-function AerialContext({layer}:{layer:ImageryLayer}) {
+function AerialContext({layer,onClick,onPointerMove}:{layer:ImageryLayer,onClick:(event:ThreeEvent<MouseEvent>)=>void,onPointerMove:(event:ThreeEvent<PointerEvent>)=>void}) {
   const textures=useTexture(['/pickwick-pema-2021-4096.png','/pickwick-naip-2024.png'])
   const gl=useThree((state)=>state.gl)
   const texture=layer==='detail'?textures[0]:textures[1]
   const geometry=useMemo(()=>{
     const value=new BufferGeometry()
-    value.setAttribute('position',new Float32BufferAttribute(AERIAL_CORNERS.flatMap((point)=>[point.xFt,-.22,-point.zFt]),3))
-    value.setAttribute('uv',new Float32BufferAttribute(AERIAL_CORNERS.flatMap((point)=>[point.u,point.v]),2))
-    value.setIndex([0,2,1,0,3,2])
+    const positions:number[]=[],uvs:number[]=[],indices:number[]=[],segments=100
+    const [a,b,,d]=AERIAL_CORNERS
+    for(let row=0;row<=segments;row++)for(let col=0;col<=segments;col++){
+      const u=col/segments,v=row/segments
+      const x=a.xFt+(b.xFt-a.xFt)*u+(d.xFt-a.xFt)*v,z=a.zFt+(b.zFt-a.zFt)*u+(d.zFt-a.zFt)*v
+      positions.push(x,groundHeight(x,z),-z);uvs.push(u,v)
+      if(row<segments&&col<segments){const i=row*(segments+1)+col;indices.push(i,i+1,i+segments+1,i+1,i+segments+2,i+segments+1)}
+    }
+    value.setAttribute('position',new Float32BufferAttribute(positions,3))
+    value.setAttribute('uv',new Float32BufferAttribute(uvs,2))
+    value.setIndex(indices)
     value.computeVertexNormals()
     return value
   },[])
@@ -54,9 +64,9 @@ function AerialContext({layer}:{layer:ImageryLayer}) {
     })
   },[gl,textures])
   useEffect(()=>()=>geometry.dispose(),[geometry])
-  return <group>
+  return <group onClick={onClick} onPointerMove={onPointerMove}>
     <mesh geometry={geometry} receiveShadow>{layer==='solar'?<meshStandardMaterial color="#b4bf9d" roughness={1} side={DoubleSide}/>:<meshBasicMaterial map={texture} color="#ffffff" side={DoubleSide} toneMapped={false}/>}</mesh>
-    {layer!=='solar'&&<mesh geometry={geometry} position={[0,.012,0]} receiveShadow><shadowMaterial transparent opacity={.75} depthWrite={false}/></mesh>}
+    {layer!=='solar'&&<mesh geometry={geometry} position={[0,.025,0]} receiveShadow><shadowMaterial transparent opacity={.75} depthWrite={false}/></mesh>}
   </group>
 }
 
@@ -69,7 +79,6 @@ function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[nu
     <color attach="background" args={[background]}/>
     {viewMode!=='planner'&&<>
       {snapshot.altitudeDeg>-6&&<Sky distance={450000} sunPosition={sunPosition} turbidity={8} rayleigh={2.2}/>}
-      <SoftShadows size={15} samples={12} focus={.45}/>
       {viewMode==='garden'&&path.length>1&&<Line points={path} color="#f4c957" lineWidth={1.2} transparent opacity={.68}/>}
       {snapshot.isAboveHorizon&&<mesh position={sunPosition}><sphereGeometry args={[4,24,24]}/><meshBasicMaterial color="#fff3a7" toneMapped={false}/></mesh>}
     </>}
@@ -86,8 +95,8 @@ function SolarLighting({snapshot,path,viewMode}:{snapshot:SolarSnapshot,path:[nu
       shadow-camera-bottom={-180}
       shadow-camera-near={1}
       shadow-camera-far={520}
-      shadow-bias={-.00008}
-      shadow-normalBias={.025}
+      shadow-bias={-.0004}
+      shadow-normalBias={.12}
     />
   </>
 }
@@ -104,9 +113,12 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const controls = useRef<OrbitControlsImpl>(null)
   const {gl,camera,raycaster,pointer}=useThree()
-  const parcelShape=makeHorizontalShape(pickwickProperty.boundary)
   const houseShape=makeHorizontalShape(pickwickProperty.buildingFootprint)
-  const boundaryPoints=[...pickwickProperty.boundary,pickwickProperty.boundary[0]].map((point)=>[point.xFt,.18,-point.zFt] as [number,number,number])
+  const boundaryPoints=pickwickProperty.boundary.flatMap((a,i)=>{
+    const b=pickwickProperty.boundary[(i+1)%pickwickProperty.boundary.length],n=Math.ceil(Math.hypot(b.xFt-a.xFt,b.zFt-a.zFt)/2)
+    return Array.from({length:n},(_,j)=>{const x=a.xFt+(b.xFt-a.xFt)*j/n,z=a.zFt+(b.zFt-a.zFt)*j/n;return [x,groundHeight(x,z)+.12,-z] as [number,number,number]})
+  })
+  boundaryPoints.push(boundaryPoints[0])
   const houseBoundaryPoints=[...pickwickProperty.buildingFootprint,pickwickProperty.buildingFootprint[0]].map((point)=>[point.xFt,.2,-point.zFt] as [number,number,number])
   const walkObstacles=useMemo(()=>design.plants.flatMap((plant)=>{
     const species=catalogById.get(plant.speciesId)
@@ -141,7 +153,8 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
     raycaster.setFromCamera(pointer,camera)
     const direction=raycaster.ray.direction,origin=raycaster.ray.origin
     if(Math.abs(direction.y)<.00001)return
-    const distance=-origin.y/direction.y
+    let distance=-origin.y/direction.y
+    for(let i=0;i<6;i++){const x=origin.x+direction.x*distance,z=-(origin.z+direction.z*distance);distance=(groundHeight(x,z)-origin.y)/direction.y}
     if(distance<0)return
     move(draggingId,origin.x+direction.x*distance,-(origin.z+direction.z*distance))
   }
@@ -153,18 +166,10 @@ function YardScene({imageryLayer,solarSnapshot,sunPath}:{imageryLayer:ImageryLay
         ?<PerspectiveCamera key="walk-camera" makeDefault position={[0,5.6,95]} fov={72} near={.05} far={700}/>
         :<OrthographicCamera key="plan-camera" makeDefault position={[0,150,.01]} rotation={[-1.5707,0,0]} zoom={2.3} near={.1} far={400}/>}
     <SolarLighting snapshot={solarSnapshot} path={sunPath} viewMode={viewMode}/>
-    {viewMode!=='planner'&&<mesh rotation={[-Math.PI/2,0,0]} position={[0,-.28,0]} receiveShadow><planeGeometry args={[420,420]}/><meshStandardMaterial color="#78886a" roughness={1}/></mesh>}
-    <AerialContext layer={imageryLayer}/>
-    <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.03,0]} onClick={onYardClick} onPointerMove={onMove} onPointerUp={()=>{setDraggingId(null);usePlannerStore.getState().endMove()}} receiveShadow>
-      <shapeGeometry args={[parcelShape]} />
-      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-    </mesh>
+    <AerialContext layer={imageryLayer} onClick={onYardClick} onPointerMove={onMove}/>
     {viewMode==='planner'&&<Grid position={[0,.02,0]} args={[240,240]} cellSize={5} cellThickness={.3} cellColor="#7f8f77" sectionSize={25} sectionThickness={.8} sectionColor="#52634e" fadeDistance={320} infiniteGrid={false}/>} 
     <Line points={boundaryPoints} color="#334e39" lineWidth={viewMode==='garden'?2:1.4}/>
-    {viewMode!=='planner'?<group>
-      <mesh rotation={[-Math.PI/2,0,0]} castShadow receiveShadow><extrudeGeometry args={[houseShape,{depth:10,bevelEnabled:false}]}/><meshStandardMaterial color="#d8c9b4" roughness={.9}/></mesh>
-      <mesh rotation={[-Math.PI/2,0,0]} position={[0,10.05,0]} castShadow receiveShadow><extrudeGeometry args={[houseShape,{depth:1.15,bevelEnabled:false}]}/><meshStandardMaterial color="#715548" roughness={.82}/></mesh>
-    </group>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,.08,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints} color="#665b4d" lineWidth={1.4}/></group>}
+    {viewMode!=='planner'?<MeasuredHouse/>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,4,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints.map(([x,,z])=>[x,4.1,z])} color="#665b4d" lineWidth={1.4}/></group>}
     {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
     {viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
   </>
@@ -248,8 +253,8 @@ export function PlannerCanvas() {
       <button className={imageryLayer==='solar'?'active':''} aria-pressed={imageryLayer==='solar'} onClick={()=>setImageryLayer('solar')}><strong>Solar ground</strong><small>Simulated shadows</small></button>
     </div>}
     {viewMode!=='walk'&&<><div className="canvas-hint">{armed ? 'Click the lawn to plant' : viewMode==='garden'?'Drag to orbit · Right-drag to pan · Scroll to zoom':'Drag plants to move · Right-drag to pan · Scroll to zoom'}</div>
-    <div className="scale-badge">15 Pickwick Ln · 0.485 acre</div>
-    <div className="imagery-badge">{imageryLayer==='solar'?'Solar ground · schematic geometry':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
+    <div className="scale-badge" title="County GIS boundary, not a survey or pavement-edge trace">15 Pickwick Ln · county GIS boundary</div>
+    <div className="imagery-badge">{imageryLayer==='solar'?'LiDAR terrain + fitted roof':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
     <SunPanel date={solarDate} minute={solarMinute} playing={solarPlaying} speed={solarSpeed} snapshot={solarSnapshot} onDateChange={changeDate} onMinuteChange={(minute)=>{setSolarMinute(minute);setSolarPlaying(false)}} onPlayingChange={toggleSolarPlayback} onSpeedChange={setSolarSpeed} onToday={returnToNow}/></>}
     {viewMode==='walk'&&<WalkHud/>}
   </div>

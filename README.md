@@ -109,13 +109,15 @@ Sources:
 - [Chester County ChescoViews](https://www.chesco.org/2198/ChescoViews)
 - [Public property record](https://www.redfin.com/PA/Malvern/15-Pickwick-Ln-19355/home/38767659)
 
-County parcel geometry is an approximate mapping reference, not a boundary survey. Building elevations, roof form, terrain, paving, and other site features remain schematic until newer planimetric or user-verified measurements are added.
+County parcel geometry is an approximate mapping reference, not a boundary survey. Its frontage must not be snapped to a pavement edge without survey evidence: a mapped boundary, right-of-way and pavement edge can differ. The [county parcel service](https://services.arcgis.com/G4S1dGvn7PIgYd6Y/arcgis/rest/services/Parcels_owners/FeatureServer) explains that the parcel mapping was historically adjusted to older photography and is not survey information.
+
+Ground now uses a four-foot grid interpolated from classified ground returns in the locally cached 2024–25 PASDA tile. The aerial texture, boundary, plants and walking camera follow that surface. Roof geometry uses 1,229 above-ground returns within the county house footprint, fitted to five supported planes with 0.071–0.125 ft residual RMSE. These residuals describe agreement with supporting points, not absolute site accuracy. The resulting triangulated roof is a reconstruction, with inferred transitions and no verified eaves, chimneys or dormers. Walls connect its perimeter to the ground. Run `.venv/Scripts/python scripts/build_pickwick_surface.py` to regenerate `src/data/pickwickSurface.json` from the cached LAZ. Sparse areas use inverse-distance interpolation; coverage outside the parcel is context only.
 
 ### Solar position and shadow accuracy
 
-The sun direction uses the [NREL Solar Position Algorithm](https://midcdmz.nlr.gov/spa/) at 40.028618° N, 75.531244° W. Inputs include the local 584.5-foot LiDAR ground elevation, an elevation-adjusted standard pressure of 992 hPa, a 15°C reference temperature, and the correct America/New_York UTC offset for each selected date. The NREL SPA implementation is distributed subject to the terms documented by NREL; the JavaScript wrapper is MIT licensed.
+The sun direction uses the [NREL Solar Position Algorithm](https://midcdmz.nlr.gov/spa/) at 40.028618° N, 75.531244° W. Inputs include the derived 586.369-foot LiDAR baseline elevation, a reference pressure of 992 hPa, a 15°C reference temperature, and the correct America/New_York UTC offset for each selected date. True-north directions are rotated approximately 1.44 degrees into the county State Plane grid using the georeferenced aerial orientation. The NREL SPA implementation is distributed subject to the terms documented by NREL; the JavaScript wrapper is MIT licensed.
 
-The astronomical position and the 3D site model have different accuracy ceilings. Shadows are geometrically consistent with the objects shown, but the current house is a county footprint extruded into a schematic flat roof. Roof pitch, eaves, chimneys, terrain, neighboring structures, and existing trees have not been surveyed. Therefore the playback is useful for understanding the model, but it is not yet suitable for solar-panel production estimates or a professional shade study.
+The astronomical position and the 3D site model have different accuracy ceilings. Shadows now use LiDAR terrain and reconstructed pitched roof geometry, improving on the previous flat roof and ground. Eaves, chimneys, neighboring structures and existing trees still require verification. The playback remains a planning aid, not a solar-panel production estimate or professional shade study.
 
 ### Existing-tree data
 
@@ -163,7 +165,7 @@ Canopy collisions, spacing guidance, sunlight/shade, regional recommendations, s
 
 ## Current limitations
 
-- Parcel and footprint geometry are public GIS approximations; the building height and roof remain illustrative.
+- Parcel and footprint geometry are public GIS approximations; roof heights and slopes are fitted to LiDAR, with transitions and small features unverified.
 - Solar astronomy is high-accuracy, but roof and obstruction shadows remain limited by unsurveyed 3D geometry and reference atmospheric inputs.
 - No existing-tree points are accepted yet; current LiDAR and imagery provide canopy context but do not resolve every trunk beneath overlapping crowns.
 - Plant geometry is intentionally procedural and stylized rather than photorealistic, but it is fully volumetric and species-scaled.

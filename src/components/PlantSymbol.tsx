@@ -6,6 +6,7 @@ import { dimensionsForPlantAtYear } from '../simulation/growth'
 import { siteToWorld } from '../simulation/coordinates'
 import { usePlannerStore } from '../store/usePlannerStore'
 import type { PlantInstance, PlantSpecies } from '../types'
+import { groundHeight } from '../simulation/surface'
 
 interface Props { plant: PlantInstance; onDragStart: (id: string) => void; onDragMove:(event:ThreeEvent<PointerEvent>)=>void }
 
@@ -56,7 +57,7 @@ export function PlantSymbol({ plant, onDragStart, onDragMove }: Props) {
   const world=siteToWorld(plant)
   const radius=Math.max(dimensions.widthFt/2,.7),isPerennial=species.type==='Perennial',isShrub=species.type==='Shrub',color=species.palette[season],winter=season==='winter'
   function pointerDown(event:ThreeEvent<PointerEvent>){event.stopPropagation();if(viewMode==='walk')return;select(plant.id);if(viewMode==='planner'){(event.target as Element).setPointerCapture(event.pointerId);usePlannerStore.getState().beginMove();onDragStart(plant.id)}}
-  return <group position={[world.x,0,world.z]} onPointerDown={pointerDown} onPointerMove={onDragMove} onPointerUp={event=>{(event.target as Element).releasePointerCapture(event.pointerId);usePlannerStore.getState().endMove()}}>
+  return <group position={[world.x,groundHeight(plant.xFt,plant.zFt),world.z]} onPointerDown={pointerDown} onPointerMove={onDragMove} onPointerUp={event=>{(event.target as Element).releasePointerCapture(event.pointerId);usePlannerStore.getState().endMove()}}>
     {viewMode==='planner'?<>
       <mesh position={[0,.14,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[radius,isPerennial?20:40]}/><meshStandardMaterial color={color} transparent opacity={winter?.38:.78} depthWrite={false}/></mesh>
       <mesh position={[0,.19,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[Math.max(radius-.18,.2),radius,40]}/><meshBasicMaterial color={selected?'#fff9dc':color} transparent opacity={selected?1:.65}/></mesh>

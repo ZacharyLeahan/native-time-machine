@@ -1,9 +1,10 @@
 import { formatTime, getSpa, SPA_ZA_RTS } from './nrelSpaBrowser'
+import { surface } from './surface'
 
 export const PICKWICK_SOLAR_SITE = {
   latitude: 40.028618,
   longitude: -75.531244,
-  elevationM: 178.17,
+  elevationM: surface.baselineElevationFt * .3048006096,
   timeZone: 'America/New_York',
   pressureMbar: 992,
   temperatureC: 15,
@@ -77,10 +78,13 @@ function worldDirection(azimuthDeg: number, altitudeDeg: number): [number,number
   const azimuth=azimuthDeg*Math.PI/180
   const altitude=altitudeDeg*Math.PI/180
   const horizontal=Math.cos(altitude)
+  // County State Plane grid is rotated about 1.44 degrees from true north.
+  // This convergence comes from the east-west edge of the georeferenced aerial.
+  const gridAzimuth=azimuth-Math.atan2(8.442,335.945)
   return [
-    Math.sin(azimuth)*horizontal,
+    Math.sin(gridAzimuth)*horizontal,
     Math.sin(altitude),
-    -Math.cos(azimuth)*horizontal,
+    -Math.cos(gridAzimuth)*horizontal,
   ]
 }
 

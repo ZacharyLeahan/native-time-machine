@@ -51,8 +51,8 @@ export function SunPanel({date,minute,playing,speed,snapshot,onDateChange,onMinu
       </div>
       <details className="sun-accuracy">
         <summary>What is accurate here?</summary>
-        <p><b>Sun position:</b> NREL SPA astronomy, using 40.028618° N, 75.531244° W, 584.5 ft elevation, 992 hPa, and 15°C.</p>
-        <p><b>Shadows:</b> choose Solar ground above to inspect simulated shade without fixed shadows from the aerial photo. The roof height/form, terrain, neighboring objects, and existing trees are not surveyed yet, so this is not a solar-site assessment.</p>
+        <p><b>Sun position:</b> NREL SPA astronomy at 40.028618° N, 75.531244° W, LiDAR ground elevation, 992 hPa, and 15°C, corrected for State Plane grid north.</p>
+        <p><b>Shadows:</b> Solar ground shows shade over LiDAR terrain and a roof fitted to 2024–25 returns. Small roof details, overhangs, neighboring structures and existing trees remain unverified. This is an improved planning model, not a surveyed shade assessment.</p>
         <a href="https://midcdmz.nlr.gov/spa/" target="_blank" rel="noreferrer">NREL Solar Position Algorithm <ExternalLink size={11}/></a>
       </details>
     </>}
