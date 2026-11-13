@@ -28,9 +28,13 @@ export function nearestPlant(point:MeasurementPoint,plants:readonly PlantInstanc
   }
   return best
 }
-export function measurementSubject(plants:readonly PlantInstance[],selectedId:string|null,carry:CarryPoint|null,mode:string):CarryPoint|null {
+export function measurementSubject(plants:readonly PlantInstance[],selectedId:string|null,carry:CarryPoint|null,mode:string,marked:readonly string[]=[],targetId:string|null=null):CarryPoint|null {
   if(mode==='spectator')return null
-  if(mode==='walk')return carry
+  if(mode==='walk'){
+    if(carry)return carry
+    const id=targetId&&marked.includes(targetId)?targetId:selectedId&&marked.includes(selectedId)?selectedId:marked.at(-1)
+    return plants.find(plant=>plant.id===id)??null
+  }
   return plants.find(plant=>plant.id===selectedId)??null
 }
 export function measurePlacement(subject:CarryPoint,plants:readonly PlantInstance[],boundary:readonly MeasurementPoint[]) {

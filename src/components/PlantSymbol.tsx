@@ -7,6 +7,7 @@ import { siteToWorld } from '../simulation/coordinates'
 import { usePlannerStore } from '../store/usePlannerStore'
 import type { PlantInstance, PlantSpecies } from '../types'
 import { groundHeight } from '../simulation/surface'
+import { Color } from 'three'
 
 interface Props { plant: PlantInstance; onDragStart: (id: string) => void; onDragMove:(event:ThreeEvent<PointerEvent>)=>void }
 
@@ -51,12 +52,14 @@ function PerennialModel({height,width,color,winter}:{height:number;width:number;
 export function PlantSymbol({ plant, onDragStart, onDragMove }: Props) {
   const year=usePlannerStore((s)=>s.year),season=usePlannerStore((s)=>s.season),viewMode=usePlannerStore((s)=>s.viewMode)
   const selected=usePlannerStore((s)=>s.selectedPlantId===plant.id),select=usePlannerStore((s)=>s.selectPlant)
+  const marked=usePlannerStore(s=>s.viewMode==='walk'&&s.walkMarked.includes(plant.id))
+  const grabLift=usePlannerStore(s=>s.walkArrangement?.grab&&s.walkArrangement.preview.some(p=>p.id===plant.id)?s.walkArrangement.grab.liftFt:0)
   const species=catalogById.get(plant.speciesId)
   const dimensions=useMemo(()=>species?dimensionsForPlantAtYear(species,plant,year):null,[species,plant,year])
   if(!species||!dimensions)return null
   const world=siteToWorld(plant)
-  const lifted=usePlannerStore.getState().walkCarry?.id===plant.id ? .8 : 0
-  const radius=Math.max(dimensions.widthFt/2,.7),isPerennial=species.type==='Perennial',isShrub=species.type==='Shrub',color=species.palette[season],winter=season==='winter'
+  const lifted=grabLift||(usePlannerStore.getState().walkCarry?.id===plant.id ? .8 : 0)
+  const radius=Math.max(dimensions.widthFt/2,.7),isPerennial=species.type==='Perennial',isShrub=species.type==='Shrub',color=marked?`#${new Color(species.palette[season]).lerp(new Color('#ffe9a3'),.4).getHexString()}`:species.palette[season],winter=season==='winter'
   function pointerDown(event:ThreeEvent<PointerEvent>){event.stopPropagation();if(viewMode==='walk'||viewMode==='spectator')return;select(plant.id);if(viewMode==='planner'){(event.target as Element).setPointerCapture(event.pointerId);usePlannerStore.getState().beginMove();onDragStart(plant.id)}}
   return <group userData={{plantId:plant.id,canClimb:!isShrub&&!isPerennial}} position={[world.x,groundHeight(plant.xFt,plant.zFt)+lifted,world.z]} onClick={event=>event.stopPropagation()} onPointerDown={pointerDown} onPointerMove={onDragMove} onPointerUp={event=>{(event.target as Element).releasePointerCapture(event.pointerId);usePlannerStore.getState().endMove()}}>
     {viewMode==='planner'?<>
@@ -67,6 +70,6 @@ export function PlantSymbol({ plant, onDragStart, onDragMove }: Props) {
       {isPerennial?<PerennialModel height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>:isShrub?<ShrubModel height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>:<TreeModel species={species} height={dimensions.heightFt} width={dimensions.widthFt} color={color} winter={winter}/>} 
       <mesh position={[0,.05,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[Math.max(radius-.14,.2),radius,48]}/><meshBasicMaterial color={selected?'#f8da65':plant.origin?.startsWith('existing-')?'#d2b450':'#365e42'} transparent opacity={selected ? .95 : plant.origin?.startsWith('existing-') ? .42 : .22}/></mesh>
     </>}
-    {selected&&viewMode==='garden'&&<Html center position={[0,dimensions.heightFt+2,0]} style={{pointerEvents:'none'}}><div className="plant-label"><strong>{species.commonName}</strong><span>{dimensions.widthFt.toFixed(0)} ft canopy · {dimensions.heightFt.toFixed(0)} ft tall</span></div></Html>}
+    {selected&&viewMode==='garden'&&<Html center position={[0,dimensions.heightFt+2,0]} zIndexRange={[7,0]} style={{pointerEvents:'none'}}><div className="plant-label"><strong>{species.commonName}</strong><span>{dimensions.widthFt.toFixed(0)} ft canopy · {dimensions.heightFt.toFixed(0)} ft tall</span></div></Html>}
   </group>
 }

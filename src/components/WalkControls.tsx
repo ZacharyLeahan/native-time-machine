@@ -8,10 +8,11 @@ import { catalogById } from '../data/catalog'
 import { usePlannerStore } from '../store/usePlannerStore'
 import { groundHeight } from '../simulation/surface'
 import { aimedPlant, buttonEdges, wheelSector } from '../simulation/controller'
+import type { GrabPose } from '../simulation/grab'
 
 const EYE_HEIGHT_FT=5.6
 const START_POSITION={x:0,z:95}
-export interface WalkAimRef {current:{xFt:number;zFt:number}}
+export interface WalkAimRef {current:{xFt:number;zFt:number};player?:GrabPose}
 
 export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle[];aimRef?:WalkAimRef}) {
   const {camera,gl,scene}=useThree()
@@ -30,6 +31,10 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
   const ray=useRef(new Raycaster())
   const hudClock=useRef(0)
   const focused=useRef(true)
+  const dpadRepeat=useRef({mask:0,elapsed:0,next:.36})
+  const sweepReady=useRef(false),sweepActive=useRef(false),sweepVisited=useRef(new Set<string>())
+  const editSession=useRef<unknown>(null),editStickReady=useRef(false)
+  const wasGrabbing=useRef(false)
 
   useEffect(()=>{
     camera.rotation.order='YXZ'
@@ -49,13 +54,23 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
     const startDrag=()=>{draggingLook.current=true}
     const endDrag=()=>{draggingLook.current=false}
     const mouseMove=(event:MouseEvent)=>{
-      if(usePlannerStore.getState().wheelOpen)return
+      const state=usePlannerStore.getState()
+      if(!focused.current||state.walkDeleteId||state.wheelOpen||(state.walkArrangement&&!state.walkArrangement.grab&&!keys.current.has('r')))return
       if(ownerDocument.pointerLockElement!==canvas&&!draggingLook.current)return
       yaw.current-=event.movementX*.0021
       pitch.current=MathUtils.clamp(pitch.current-event.movementY*.0021,-Math.PI*.47,Math.PI*.47)
     }
     const keyDown=(event:KeyboardEvent)=>{
+      if(typeof HTMLElement!=='undefined'&&event.target instanceof HTMLElement&&(event.target.closest('input,select,textarea,dialog[open],.disclosure-menu[open]')||event.target.isContentEditable))return
+      if((event.key==='Enter'||event.key===' ')&&typeof HTMLElement!=='undefined'&&event.target instanceof HTMLElement&&event.target.closest('button,summary'))return
       const key=event.key.toLowerCase()
+      const state=usePlannerStore.getState()
+      if(state.walkDeleteId){if(key==='escape')state.cancelWalkDelete();else if(key==='enter')state.confirmWalkDelete();return}
+      if(key==='m'&&!event.repeat&&state.walkTargetId){state.toggleWalkMark(state.walkTargetId);return}
+      if((key==='g'||key==='enter')&&!event.repeat){if(state.walkArrangement)state.applyArrangement();else state.grabPlants(undefined,{xFt:camera.position.x,zFt:-camera.position.z,heightFt:camera.position.y,yaw:yaw.current,pitch:pitch.current});return}
+      if(key==='escape'&&!state.wheelOpen&&(state.walkArrangement||state.walkMarked.length)){state.cancelArrangement(!state.walkArrangement);return}
+      if(state.walkArrangement&&['arrowup','arrowdown','arrowleft','arrowright'].includes(key)){event.preventDefault();state.moveArrangement(Number(key==='arrowright')-Number(key==='arrowleft'),Number(key==='arrowup')-Number(key==='arrowdown'),true);return}
+      if(key==='r')keys.current.add('r')
       if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift'].includes(key)){event.preventDefault();keys.current.add(key)}
       if(key==='q'){
         if(ownerDocument.pointerLockElement===canvas)ownerDocument.exitPointerLock?.()
@@ -63,7 +78,7 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
       }
     }
     const keyUp=(event:KeyboardEvent)=>keys.current.delete(event.key.toLowerCase())
-    const clearKeys=()=>{keys.current.clear();draggingLook.current=false;focused.current=false;previousButtons.current=null;usePlannerStore.setState({walkCarry:null,wheelOpen:false,wheelIndex:null})}
+    const clearKeys=()=>{keys.current.clear();draggingLook.current=false;focused.current=false;previousButtons.current=null;sweepReady.current=false;sweepActive.current=false;sweepVisited.current.clear();dpadRepeat.current={mask:0,elapsed:0,next:.36};usePlannerStore.setState({walkCarry:null,walkArrangement:null,walkMarked:[],walkTargetId:null,walkSelecting:false,walkDeleteId:null,walkInspectId:null,wheelOpen:false,wheelIndex:null})}
     const focus=()=>{focused.current=true;previousButtons.current=null}
     canvas.addEventListener('click',lockMouse)
     canvas.addEventListener('pointerdown',startDrag)
@@ -82,7 +97,7 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
       window.removeEventListener('keyup',keyUp)
       window.removeEventListener('blur',clearKeys)
       window.removeEventListener('focus',focus)
-      usePlannerStore.setState({walkCarry:null,wheelOpen:false,wheelIndex:null})
+      usePlannerStore.setState({walkCarry:null,walkArrangement:null,walkMarked:[],walkTargetId:null,walkSelecting:false,walkDeleteId:null,walkInspectId:null,wheelOpen:false,wheelIndex:null})
       if(ownerDocument.pointerLockElement===canvas)ownerDocument.exitPointerLock?.()
     }
   },[camera,gl,setViewMode,aimRef])
@@ -93,27 +108,37 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
     pitch.current=0
     jump.current={height:0,velocity:0}
     if(aimRef)aimRef.current={xFt:START_POSITION.x,zFt:-START_POSITION.z+12}
-    usePlannerStore.setState({walkCarry:null,wheelOpen:false,wheelIndex:null})
+    usePlannerStore.setState({walkCarry:null,walkArrangement:null,walkMarked:[],walkTargetId:null,walkSelecting:false,walkDeleteId:null,walkInspectId:null,wheelOpen:false,wheelIndex:null})
   },[camera,resetKey,aimRef])
 
   useFrame((_,rawDelta)=>{
     const delta=Math.min(rawDelta,.05)
     const state=usePlannerStore.getState()
     const carry=state.walkCarry
+    const editing=Boolean(state.walkArrangement)
+    const grabbing=Boolean(state.walkArrangement?.grab)
+    if(editSession.current!==(state.walkArrangement?.original??null)||wasGrabbing.current!==grabbing){editSession.current=state.walkArrangement?.original??null;wasGrabbing.current=grabbing;editStickReady.current=false}
     const pressed=keys.current
     let forward=(pressed.has('w')||pressed.has('arrowup')?1:0)-(pressed.has('s')||pressed.has('arrowdown')?1:0)
     let right=(pressed.has('d')||pressed.has('arrowright')?1:0)-(pressed.has('a')||pressed.has('arrowleft')?1:0)
     let sprint=pressed.has('shift')
     const gamepad=focused.current?navigator.getGamepads?.().find((entry):entry is Gamepad=>Boolean(entry?.connected&&entry.mapping==='standard')):undefined
-    let jumpPressed=false,pickPressed=false,dropPressed=false,zoom=0
+    let jumpPressed=false,pickPressed=false,dropPressed=false,markPressed=false,viewHeld=false,zoom=0,slideAlong=0,slideAway=0,nudgeAlong=0,nudgeAway=0
     let suppressActions=state.wheelOpen
     if(gamepad){
       const identity=`${gamepad.index}:${gamepad.id}`
-      if(identity!==padId.current){previousButtons.current=null;padId.current=identity}
+      if(identity!==padId.current){previousButtons.current=null;padId.current=identity;sweepReady.current=false;sweepActive.current=false;sweepVisited.current.clear()}
       right+=applyStickDeadzone(gamepad.axes[0]??0)
       forward-=applyStickDeadzone(gamepad.axes[1]??0)
       const buttons=gamepad.buttons.map(button=>button.pressed||button.value>.55)
       const edges=buttonEdges(buttons,previousButtons.current)
+      if(!buttons[8])sweepReady.current=true
+      viewHeld=Boolean(buttons[8]&&previousButtons.current&&sweepReady.current)
+      if(state.walkDeleteId){
+        previousButtons.current=buttons
+        if(edges[1])state.cancelWalkDelete();else if(edges[0])state.confirmWalkDelete()
+        return
+      }
       if(!buttons[4])wheelBlocked.current=false
       const wheelHeld=Boolean(buttons[4]&&previousButtons.current&&!wheelBlocked.current)
       const wasWheel=state.wheelOpen
@@ -121,30 +146,57 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
         const index=wheelSector(gamepad.axes[2]??0,gamepad.axes[3]??0)
         if(!wasWheel||index!==state.wheelIndex)usePlannerStore.setState({wheelOpen:true,wheelIndex:index})
       }else if(wasWheel&&previousButtons.current?.[4]&&!buttons[4]){
-        state.chooseEquipment(state.wheelIndex,camera.position.x-Math.sin(yaw.current)*12,-camera.position.z+Math.cos(yaw.current)*12)
+        state.chooseEquipment(state.wheelIndex,camera.position.x-Math.sin(yaw.current)*12,-camera.position.z+Math.cos(yaw.current)*12,yaw.current)
       }
       suppressActions=wasWheel||Boolean(buttons[4])
       if(suppressActions){forward=0;right=0}
       zoom=suppressActions?0:gamepad.buttons[6]?.value??0
-      if(!suppressActions){
+      if(editing){
+        if(buttons[5]||viewHeld||suppressActions)editStickReady.current=false
+        else if(lookStick(gamepad.axes[2]??0,state.lookDeadzone)===0&&lookStick(gamepad.axes[3]??0,state.lookDeadzone)===0)editStickReady.current=true
+      }
+      if(!suppressActions&&editing&&!grabbing&&!buttons[5]&&!viewHeld){
+        if(editStickReady.current){slideAlong=lookStick(gamepad.axes[2]??0,state.lookDeadzone)*4*delta*(zoom>.15?.3:1);slideAway=-lookStick(gamepad.axes[3]??0,state.lookDeadzone)*4*delta*(zoom>.15?.3:1)}
+      }else if(!suppressActions){
         yaw.current-=lookStick(gamepad.axes[2]??0,state.lookDeadzone)*2.1*delta*(zoom>.15?.65:1)
         pitch.current=MathUtils.clamp(pitch.current-lookStick(gamepad.axes[3]??0,state.lookDeadzone)*1.7*delta*(zoom>.15?.65:1),-Math.PI*.47,Math.PI*.47)
       }
-      jumpPressed=!suppressActions&&edges[0]
-      pickPressed=!suppressActions&&edges[2]
-      dropPressed=!suppressActions&&edges[7]
+      jumpPressed=!suppressActions&&!viewHeld&&edges[0]
+      pickPressed=!suppressActions&&!viewHeld&&edges[2]
+      dropPressed=!suppressActions&&!viewHeld&&edges[7]
+      markPressed=!suppressActions&&edges[9]
+      const mask=(buttons[12]?1:0)|(buttons[13]?2:0)|(buttons[14]?4:0)|(buttons[15]?8:0)
+      if(!mask||suppressActions||viewHeld){dpadRepeat.current={mask:0,elapsed:0,next:.36}}
+      else if(editing||(carry&&!carry.speciesId)){
+        const fresh=[12,13,14,15].some(i=>edges[i]),repeat=dpadRepeat.current
+        if(fresh){dpadRepeat.current={mask,elapsed:0,next:.36}}
+        else if(repeat.mask===mask)repeat.elapsed+=delta
+        if(fresh||(repeat.mask===mask&&repeat.elapsed>=repeat.next)){
+          if(!fresh)repeat.next+=.14
+          nudgeAlong=Number(Boolean(mask&8))-Number(Boolean(mask&4));nudgeAway=Number(Boolean(mask&1))-Number(Boolean(mask&2))
+        }
+      }else dpadRepeat.current={mask:0,elapsed:0,next:.36}
       previousButtons.current=buttons
       sprint=sprint||Boolean(gamepad.buttons[10]?.pressed)
       const exitPressed=Boolean(gamepad.buttons[1]?.pressed)
       if(edges[1]){
-        if(suppressActions||carry){wheelBlocked.current=true;usePlannerStore.setState({wheelOpen:false,wheelIndex:null,walkCarry:null,walkPrompt:'Cancelled'});return}
+        if(suppressActions){wheelBlocked.current=true;usePlannerStore.setState({wheelOpen:false,wheelIndex:null,walkPrompt:'Wheel closed'});return}
+        if(editing){state.cancelArrangement();return}
+        if(carry){usePlannerStore.setState({walkCarry:null,walkPrompt:'Cancelled'});return}
+        if(viewHeld){sweepReady.current=false;state.cancelArrangement(true);usePlannerStore.setState({walkSelecting:false});return}
+        if(state.walkMarked.length){state.cancelArrangement(true);return}
         document.exitPointerLock?.();setViewMode('garden')
       }
       controllerExitPressed.current=exitPressed
     }else{
-      if(padId.current){usePlannerStore.setState({walkCarry:null,wheelOpen:false,wheelIndex:null});padId.current=null;previousButtons.current=null;if(camera instanceof PerspectiveCamera){camera.fov=72;camera.updateProjectionMatrix()}return}
+      if(padId.current){usePlannerStore.setState({walkCarry:null,walkArrangement:null,walkMarked:[],walkTargetId:null,walkSelecting:false,walkDeleteId:null,walkInspectId:null,wheelOpen:false,wheelIndex:null});padId.current=null;previousButtons.current=null;dpadRepeat.current={mask:0,elapsed:0,next:.36};if(camera instanceof PerspectiveCamera){camera.fov=72;camera.updateProjectionMatrix()}return}
       previousButtons.current=null;controllerExitPressed.current=false
     }
+    if(state.walkDeleteId)return
+    const selecting=viewHeld&&!suppressActions&&!editing&&!carry
+    if(viewHeld&&!sweepActive.current)sweepVisited.current.clear()
+    sweepActive.current=viewHeld
+    if(state.walkSelecting!==selecting)usePlannerStore.setState({walkSelecting:selecting})
     if(suppressActions){forward=0;right=0}
     if(camera instanceof PerspectiveCamera){const target=zoom>.15?54:72;camera.fov=MathUtils.damp(camera.fov,target,18,delta);if(Math.abs(camera.fov-target)<.01)camera.fov=target;camera.updateProjectionMatrix()}
     if(usePlannerStore.getState().viewMode!=='walk')return
@@ -163,8 +215,20 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
     if(state.viewMode!=='walk')return
     const xFt=camera.position.x-Math.sin(yaw.current)*12,zFt=-(camera.position.z-Math.cos(yaw.current)*12)
     if(aimRef)aimRef.current={xFt,zFt}
+    const pose={xFt:camera.position.x,zFt:-camera.position.z,heightFt:camera.position.y,yaw:yaw.current,pitch:pitch.current}
+    if(aimRef)aimRef.player=pose
     if(suppressActions)return
+    if(editing){
+      if(pickPressed||dropPressed){state.applyArrangement();return}
+      if(grabbing){if(nudgeAlong||nudgeAway)state.moveArrangement(nudgeAlong,nudgeAway,true);else if(!viewHeld)state.updateGrab(pose);return}
+      if(slideAlong||slideAway)state.moveArrangement(slideAlong,slideAway)
+      if(nudgeAlong||nudgeAway)state.moveArrangement(nudgeAlong,nudgeAway,true)
+      return
+    }
+    if(pickPressed&&state.walkMarked.length){state.grabPlants(undefined,pose);return}
     if(carry){
+      if(viewHeld)return
+      if((nudgeAlong||nudgeAway)&&!carry.speciesId){state.startArrangement([carry.id],yaw.current);state.moveArrangement(nudgeAlong,nudgeAway,true);return}
       if(pickPressed||dropPressed){
         // Commit the same position the plant preview and distance guides show.
         // Sampling a newer camera aim here can otherwise jump beyond the guide.
@@ -180,9 +244,11 @@ export function WalkControls({obstacles,aimRef}:{obstacles:readonly WalkObstacle
       ray.current.far=65
       const aimed=aimedPlant(ray.current.intersectObjects(scene.children,true))
       const plant=state.design.plants.find(p=>p.id===aimed)
-      const prompt=plant?`X pick up ${catalogById.get(plant.speciesId)?.commonName??'plant'}`:'Aim at a plant · X picks up'
-      if(prompt!==state.walkPrompt)usePlannerStore.setState({walkPrompt:prompt})
-      if(pickPressed&&plant)usePlannerStore.setState({walkCarry:{id:plant.id,xFt:plant.xFt,zFt:plant.zFt},selectedPlantId:plant.id})
+      const prompt=plant?`${catalogById.get(plant.speciesId)?.commonName??'Plant'} · Menu ${state.walkMarked.includes(plant.id)?'deselects':'selects'} · X ${state.walkMarked.length?'grabs selection':'grabs'}`:state.walkMarked.length?`${state.walkMarked.length} selected · LB opens ${state.walkMarked.length===1?'plant actions':'alignment tools'}`:'Hold View and aim to select · Menu toggles one plant'
+      if(prompt!==state.walkPrompt||state.walkTargetId!==(plant?.id??null))usePlannerStore.setState({walkPrompt:prompt,walkTargetId:plant?.id??null})
+      if(markPressed&&plant){sweepVisited.current.add(plant.id);state.toggleWalkMark(plant.id);return}
+      if(selecting&&plant&&!sweepVisited.current.has(plant.id)){sweepVisited.current.add(plant.id);state.selectWalkPlant(plant.id);return}
+      if(pickPressed&&plant)state.grabPlants([plant.id],pose)
     }
   })
   return null

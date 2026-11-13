@@ -9,6 +9,16 @@ import { pickwickProperty } from '../data/pickwickProperty'
 beforeEach(()=>store.setState({viewMode:'garden',favorites:[...DEFAULT_FAVORITES],cameraShortcut:null,walkCarry:null,design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
 afterEach(()=>vi.unstubAllGlobals())
 describe('design editing',()=>{
+  it('compares all boundary alignments without editing saved plants or undo history',()=>{
+    store.getState().placePlant('white-oak',0,0)
+    const design=store.getState().design,history=store.getState().past
+    for(const view of ['aerial','recorded','gis'] as const){
+      store.getState().setBoundaryView(view)
+      expect(store.getState().recordedBoundary).toBe(view!=='gis')
+      expect(store.getState().aerialAligned).toBe(view==='aerial')
+      expect(store.getState().design).toBe(design);expect(store.getState().past).toBe(history)
+    }
+  })
   it('updates measurements through a drag and restores positions with a single undo',()=>{
     store.getState().placePlant('white-oak',0,0)
     const id=store.getState().design.plants[0].id

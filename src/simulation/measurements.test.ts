@@ -50,7 +50,7 @@ describe('horizontal placement measurements',()=>{
     expect(result.boundary?.distanceFt).toBe(2)
     expect(serializeDesign(design)).toBe(before)
   })
-  it('uses selection in Plan/Garden, only a preview in Walk, and nothing in Spectator',()=>{
+  it('uses selection in Plan/Garden, carry previews in Walk, and nothing in Spectator',()=>{
     const plant=tree('self',2,2),preview={id:'walk-preview',speciesId:'red-maple',xFt:8,zFt:2}
     expect(measurementSubject([plant],plant.id,null,'garden')).toBe(plant)
     expect(measurementSubject([plant],plant.id,null,'planner')).toBe(plant)
@@ -58,6 +58,14 @@ describe('horizontal placement measurements',()=>{
     expect(measurementSubject([plant],plant.id,preview,'walk')).toBe(preview)
     expect(measurementSubject([plant],plant.id,preview,'spectator')).toBeNull()
     expect(measurementSubject([plant],'missing',null,'planner')).toBeNull()
+  })
+  it('measures a selected Walk plant while staying idle and follows the aimed member of a multi-selection',()=>{
+    const plants=[tree('first',2,2),tree('second',8,2),tree('unselected',9,9)],marked=['first','second']
+    expect(measurementSubject(plants,'first',null,'walk',marked,'second')).toBe(plants[1])
+    expect(measurementSubject(plants,'first',null,'walk',marked,'unselected')).toBe(plants[0])
+    expect(measurementSubject(plants,null,null,'walk',marked,null)).toBe(plants[1])
+    expect(measurementSubject(plants,'first',null,'walk',[],null)).toBeNull()
+    expect(measurementSubject(plants,'first',null,'spectator',marked,'first')).toBeNull()
   })
   it('measures the explicitly chosen real boundary, including the recorded frontage curve',()=>{
     const point=recordedLot49Boundary[30]
