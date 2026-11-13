@@ -3,10 +3,35 @@ import { usePlannerStore as store } from './usePlannerStore'
 import { defaultDesign } from '../persistence/design'
 import { placementError } from '../simulation/placement'
 import { DEFAULT_FAVORITES, FAVORITES_KEY } from '../persistence/favorites'
+import { measurePlacement } from '../simulation/measurements'
+import { pickwickProperty } from '../data/pickwickProperty'
 
 beforeEach(()=>store.setState({viewMode:'garden',favorites:[...DEFAULT_FAVORITES],cameraShortcut:null,walkCarry:null,design:{...defaultDesign,plants:[]},past:[],future:[],moveBaseline:null,selectedPlantId:null,notice:null}))
 afterEach(()=>vi.unstubAllGlobals())
 describe('design editing',()=>{
+  it('updates measurements through a drag and restores positions with a single undo',()=>{
+    store.getState().placePlant('white-oak',0,0)
+    const id=store.getState().design.plants[0].id
+    store.getState().placePlant('red-maple',20,0)
+    const original=store.getState().design,historyLength=store.getState().past.length
+    store.getState().selectPlant(id);store.getState().beginMove()
+    store.getState().movePlant(id,10,0)
+    let state=store.getState()
+    expect(measurePlacement(state.design.plants[0],state.design.plants,pickwickProperty.boundary).neighbor?.distanceFt).toBe(10)
+    store.getState().movePlant(id,15,0);store.getState().endMove();state=store.getState()
+    expect(measurePlacement(state.design.plants[0],state.design.plants,pickwickProperty.boundary).neighbor?.distanceFt).toBe(5)
+    expect(state.past).toHaveLength(historyLength+1)
+    store.getState().undo();expect(store.getState().design).toBe(original)
+  })
+  it('keeps measurement boundary and coordinate-grid controls out of design data and undo history',()=>{
+    const design=store.getState().design,history=store.getState().past
+    store.setState({recordedBoundary:true,coordinateGrid:false})
+    store.getState().toggleBoundary();store.getState().toggleCoordinateGrid()
+    expect(store.getState().recordedBoundary).toBe(false);expect(store.getState().coordinateGrid).toBe(true)
+    expect(store.getState().design).toBe(design);expect(store.getState().past).toBe(history)
+    expect(store.getState().design).not.toHaveProperty('coordinateGrid')
+    store.getState().toggleBoundary();store.getState().toggleCoordinateGrid()
+  })
   it('persists favorites separately and equips a replacement without changing any placements or history',()=>{
     const setItem=vi.fn();vi.stubGlobal('localStorage',{setItem})
     const original=store.getState().design

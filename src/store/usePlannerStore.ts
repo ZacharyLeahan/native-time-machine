@@ -10,6 +10,7 @@ import { pickwickProperty } from '../data/pickwickProperty'
 
 export type ViewMode = 'garden' | 'planner' | 'walk' | 'spectator'
 interface PlannerState {
+  recordedBoundary:boolean; toggleBoundary:()=>void; coordinateGrid:boolean; toggleCoordinateGrid:()=>void
   favorites:string[]; toggleFavorite:(id:string)=>void
   cameraShortcut:{preset:'front'|'back'|'left'|'right'|'selected';id:number}|null
   requestCamera:(preset:'front'|'back'|'left'|'right'|'selected')=>void
@@ -31,6 +32,8 @@ export const usePlannerStore = create<PlannerState>((set,get)=>{
   }
   const save=()=>{try{saveDesign(get().design);set({saveStatus:'Saved locally'})}catch{set({saveStatus:'Could not save — export a backup',notice:'Local saving failed. Export your design to keep a backup.'})}}
   return {
+    recordedBoundary:true,toggleBoundary:()=>set(s=>({recordedBoundary:!s.recordedBoundary})),
+    coordinateGrid:false,toggleCoordinateGrid:()=>set(s=>({coordinateGrid:!s.coordinateGrid})),
     favorites:typeof localStorage==='undefined'?[...DEFAULT_FAVORITES]:loadFavorites(localStorage),
     toggleFavorite:id=>{
       const s=get(),species=catalogById.get(id)

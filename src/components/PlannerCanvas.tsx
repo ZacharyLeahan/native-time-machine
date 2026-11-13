@@ -1,4 +1,4 @@
-import { Grid, Line, OrbitControls, OrthographicCamera, PerspectiveCamera, Sky, useTexture } from '@react-three/drei'
+import { Line, OrbitControls, OrthographicCamera, PerspectiveCamera, Sky, useTexture } from '@react-three/drei'
 import { Canvas, type ThreeEvent, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BufferGeometry, DoubleSide, Float32BufferAttribute, LinearFilter, LinearMipmapLinearFilter, MOUSE, Shape, SRGBColorSpace } from 'three'
@@ -19,6 +19,7 @@ import { groundHeight } from '../simulation/surface'
 import { lot49Plan, recordedLot49Boundary } from '../data/recordedLot49'
 import { EquipmentWheel } from './EquipmentWheel'
 import { CameraShortcuts, CameraShortcutsRig } from './CameraShortcuts'
+import { CoordinateGrid, PlacementDistanceLines, PlacementMeasurementReadout } from './PlacementMeasurements'
 
 function makeHorizontalShape(points: readonly SitePoint[]) {
   const shape=new Shape()
@@ -173,11 +174,12 @@ function YardScene({imageryLayer,solarSnapshot,sunPath,recordedBoundary}:{imager
         :viewMode==='spectator'?<PerspectiveCamera key="spectator-camera" makeDefault position={[170,125,190]} fov={72} near={.05} far={5000}/>:<OrthographicCamera key="plan-camera" makeDefault position={[0,150,.01]} rotation={[-1.5707,0,0]} zoom={2.3} near={.1} far={400}/>}
     <SolarLighting snapshot={solarSnapshot} path={sunPath} viewMode={viewMode}/>
     <AerialContext layer={imageryLayer} onClick={onYardClick} onPointerMove={onMove}/>
-    {viewMode==='planner'&&<Grid position={[0,.02,0]} args={[240,240]} cellSize={5} cellThickness={.3} cellColor="#7f8f77" sectionSize={25} sectionThickness={.8} sectionColor="#52634e" fadeDistance={320} infiniteGrid={false}/>} 
+    <CoordinateGrid/>
     <Line points={boundaryPoints} color="#334e39" lineWidth={viewMode==='garden'?2:1.4}/>
     {viewMode!=='planner'?<MeasuredHouse/>:<group><mesh rotation={[-Math.PI/2,0,0]} position={[0,4,0]}><shapeGeometry args={[houseShape]}/><meshStandardMaterial color="#d6ccbd" transparent opacity={.42} depthWrite={false}/></mesh><Line points={houseBoundaryPoints.map(([x,,z])=>[x,4.1,z])} color="#665b4d" lineWidth={1.4}/></group>}
     {design.plants.map((plant)=><PlantSymbol key={plant.id} plant={carry?.id===plant.id?{...plant,xFt:carry.xFt,zFt:carry.zFt}:plant} onDragMove={onMove} onDragStart={(id)=>{setDraggingId(id);if(controls.current)controls.current.enabled=false}} />)}
     {carry?.speciesId&&<PlantSymbol plant={{id:carry.id,speciesId:carry.speciesId,xFt:carry.xFt,zFt:carry.zFt,plantedYear:0}} onDragMove={()=>{}} onDragStart={()=>{}}/>}
+    <PlacementDistanceLines/>
     {viewMode==='spectator'?<SpectatorControls/>:viewMode==='walk'?<WalkControls obstacles={walkObstacles}/>:<OrbitControls ref={controls} makeDefault target={[0,viewMode==='garden'?15:0,0]} enableRotate={viewMode==='garden'} minZoom={1.8} maxZoom={18} minDistance={35} maxDistance={420} maxPolarAngle={Math.PI*.48} mouseButtons={{LEFT:MOUSE.ROTATE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.PAN}} />}
     {viewMode==='garden'&&<CameraShortcutsRig/>}
   </>
@@ -212,7 +214,7 @@ function WalkHud() {
 }
 
 export function PlannerCanvas() {
-  const [recordedBoundary,setRecordedBoundary]=useState(true)
+  const recordedBoundary=usePlannerStore(s=>s.recordedBoundary),toggleBoundary=usePlannerStore(s=>s.toggleBoundary)
   const armed = usePlannerStore((s)=>s.armedSpeciesId)
   const viewMode = usePlannerStore((s)=>s.viewMode)
   const [imageryLayer,setImageryLayer]=useState<ImageryLayer>('detail')
@@ -267,10 +269,10 @@ export function PlannerCanvas() {
       <button className={imageryLayer==='solar'?'active':''} aria-pressed={imageryLayer==='solar'} onClick={()=>setImageryLayer('solar')}><strong>Solar ground</strong><small>Simulated shadows</small></button>
     </div>}
     {viewMode!=='walk'&&viewMode!=='spectator'&&<><div className="canvas-hint">{armed ? 'Click the lawn to plant' : viewMode==='garden'?'Drag to orbit · Right-drag to pan · Scroll to zoom':'Drag plants to move · Right-drag to pan · Scroll to zoom'}</div>
-    <button className="scale-badge" style={{pointerEvents:'auto'}} aria-label="Toggle recorded plan and county GIS boundary" aria-pressed={recordedBoundary} title={`${lot49Plan.anchor} Click to compare county GIS. Placement limits use county GIS.`} onClick={()=>setRecordedBoundary(value=>!value)}>{recordedBoundary?'Lot 49 · recorded dimensions · GIS anchor':'County GIS boundary · click to compare'}</button>
+    <button className="scale-badge" style={{pointerEvents:'auto'}} aria-label="Toggle recorded plan and county GIS boundary" aria-pressed={recordedBoundary} title={`${lot49Plan.anchor} Click to compare county GIS. Placement limits use county GIS.`} onClick={toggleBoundary}>{recordedBoundary?'Lot 49 · recorded dimensions · GIS anchor':'County GIS boundary · click to compare'}</button>
     <div className="imagery-badge">{imageryLayer==='solar'?'LiDAR terrain + fitted roof':`${imageryLayer==='detail'?'PEMA 2021':'NAIP 2024'} · photo shadows are fixed`}</div>
     <SunPanel date={solarDate} minute={solarMinute} playing={solarPlaying} speed={solarSpeed} snapshot={solarSnapshot} onDateChange={changeDate} onMinuteChange={(minute)=>{setSolarMinute(minute);setSolarPlaying(false)}} onPlayingChange={toggleSolarPlayback} onSpeedChange={setSolarSpeed} onToday={returnToNow}/></>}
-    {viewMode==='walk'&&<><WalkHud/><EquipmentWheel/></>}
+    {viewMode==='walk'&&<><WalkHud/><EquipmentWheel/><PlacementMeasurementReadout compact/></>}
     {viewMode==='spectator'&&<div className="walk-hud"><div className="walk-reticle" aria-hidden="true"><i/><i/></div><div className="walk-help"><strong>Spectator · free flight · editing disabled</strong><span>WASD / arrows fly · mouse looks</span><span>Space / E up · Q / C down · Shift fast</span><span>Xbox: LS fly · RS look · RB up · LB down</span><span>L3 fast · LT zoom · B / F exit</span><span>Click to capture mouse · Esc releases</span></div></div>}
   </div>
 }

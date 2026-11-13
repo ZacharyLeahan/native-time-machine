@@ -11,8 +11,9 @@ import { groundHeight } from '../simulation/surface'
 
 export function CameraShortcuts() {
   const selected=usePlannerStore(s=>s.selectedPlantId),request=usePlannerStore(s=>s.requestCamera),shortcut=usePlannerStore(s=>s.cameraShortcut)
+  const grid=usePlannerStore(s=>s.coordinateGrid),toggleGrid=usePlannerStore(s=>s.toggleCoordinateGrid),mode=usePlannerStore(s=>s.viewMode)
   const shots:{preset:CameraPreset;label:string}[]=[{preset:'front',label:'Front'},{preset:'back',label:'Back'},{preset:'left',label:'Left'},{preset:'right',label:'Right'},{preset:'selected',label:'Focus plant'}]
-  return <div className="camera-shortcuts" role="group" aria-label="Camera shortcuts"><span>Views</span>{shots.map(shot=><button key={shot.preset} disabled={shot.preset==='selected'&&!selected} aria-pressed={shortcut?.preset===shot.preset} onClick={()=>request(shot.preset)}>{shot.label}</button>)}</div>
+  return <div className="camera-shortcuts" role="group" aria-label="Camera shortcuts"><span>Views</span>{shots.map(shot=><button key={shot.preset} disabled={shot.preset==='selected'&&!selected} aria-pressed={shortcut?.preset===shot.preset} onClick={()=>request(shot.preset)}>{shot.label}</button>)}{mode==='planner'&&<><label className="coordinate-toggle"><input type="checkbox" checked={grid} onChange={toggleGrid}/>Coordinate grid</label>{grid&&<small className="coordinate-hint">Site feet · X east / Y north · 5 ft grid / 25 ft labels</small>}</>}</div>
 }
 
 export function CameraShortcutsRig() {

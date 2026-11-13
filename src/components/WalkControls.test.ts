@@ -5,6 +5,7 @@ import { DEFAULT_FAVORITES } from '../persistence/favorites'
 import { usePlannerStore as store } from '../store/usePlannerStore'
 import { WalkControls } from './WalkControls'
 import { EquipmentWheel } from './EquipmentWheel'
+import { measurePlacement,measurementSubject } from '../simulation/measurements'
 
 // Run the real Walk frame callback with deterministic hardware and Three.js objects.
 // React/R3F scheduling is replaced; navigation, raycasting and store actions are real.
@@ -36,6 +37,21 @@ beforeEach(()=>{
 afterEach(()=>{harness.cleanups.splice(0).reverse().forEach(cleanup=>cleanup());vi.unstubAllGlobals()})
 
 describe('Xbox Walk frame integration',()=>{
+  it('feeds live carry measurements as the controller moves while leaving saved positions intact',()=>{
+    store.getState().placePlant('white-oak',0,0)
+    const design=store.getState().design
+    setup();camera.position.set(0,5.6,10);store.getState().chooseEquipment(1,0,0);frame(6)
+    const currentMeasurement=()=>{
+      const state=store.getState(),subject=measurementSubject(state.design.plants,state.selectedPlantId,state.walkCarry,state.viewMode)!
+      return measurePlacement(subject,state.design.plants,[{xFt:-20,zFt:-20},{xFt:20,zFt:-20},{xFt:20,zFt:20},{xFt:-20,zFt:20}])
+    }
+    const before=currentMeasurement()
+    pad.axes[1]=-1;frame(12)
+    const after=currentMeasurement()
+    expect(after.neighbor?.distanceFt).toBeGreaterThan(before.neighbor!.distanceFt)
+    expect(after.boundary?.distanceFt).toBeLessThan(before.boundary!.distanceFt)
+    expect(store.getState().design).toBe(design)
+  })
   it('allows Escape to dismiss the equipment overlay without committing a preview',()=>{
     setup();store.getState().chooseEquipment(0,0,0)
     const design=store.getState().design,carry=store.getState().walkCarry

@@ -2,6 +2,7 @@ import { CircleCheck, CircleDashed, Copy, Leaf, MapPinned, Ruler, ScanLine, Sun,
 import { catalogById } from '../data/catalog'
 import { dimensionsForPlantAtYear } from '../simulation/growth'
 import { usePlannerStore } from '../store/usePlannerStore'
+import { PlacementMeasurementReadout } from './PlacementMeasurements'
 
 export function DetailsPanel() {
   const design=usePlannerStore((s)=>s.design), selectedId=usePlannerStore((s)=>s.selectedPlantId), year=usePlannerStore((s)=>s.year), season=usePlannerStore((s)=>s.season)
@@ -19,6 +20,7 @@ export function DetailsPanel() {
   return <aside className="details-panel panel">
     <div className="detail-hero" style={{background:`linear-gradient(135deg, ${species.palette[season]}, #233d2f)`}}><span>{sourceLabel}</span><h2>{species.commonName}</h2><em>{species.scientificName}</em></div>
     <div className="detail-body">
+      <PlacementMeasurementReadout/>
       <div className="now-grid"><div><Ruler size={16}/><span>Height at year {year}</span><strong>{dims.heightFt.toFixed(1)} ft</strong></div><div><Trees size={16}/><span>Canopy at year {year}</span><strong>{dims.widthFt.toFixed(1)} ft</strong></div></div>
       <div className="maturity"><span>Estimated maturity</span><strong>{Math.round(dims.maturity*100)}%</strong><div><i style={{width:`${dims.maturity*100}%`}}/></div></div>
       <section><h3>Seasonal character</h3><p>{species.seasons[season]}</p></section>
