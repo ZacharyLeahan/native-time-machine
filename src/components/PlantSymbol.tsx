@@ -58,7 +58,7 @@ export function PlantSymbol({ plant, onDragStart, onDragMove }: Props) {
   const lifted=usePlannerStore.getState().walkCarry?.id===plant.id ? .8 : 0
   const radius=Math.max(dimensions.widthFt/2,.7),isPerennial=species.type==='Perennial',isShrub=species.type==='Shrub',color=species.palette[season],winter=season==='winter'
   function pointerDown(event:ThreeEvent<PointerEvent>){event.stopPropagation();if(viewMode==='walk'||viewMode==='spectator')return;select(plant.id);if(viewMode==='planner'){(event.target as Element).setPointerCapture(event.pointerId);usePlannerStore.getState().beginMove();onDragStart(plant.id)}}
-  return <group userData={{plantId:plant.id}} position={[world.x,groundHeight(plant.xFt,plant.zFt)+lifted,world.z]} onPointerDown={pointerDown} onPointerMove={onDragMove} onPointerUp={event=>{(event.target as Element).releasePointerCapture(event.pointerId);usePlannerStore.getState().endMove()}}>
+  return <group userData={{plantId:plant.id,canClimb:!isShrub&&!isPerennial}} position={[world.x,groundHeight(plant.xFt,plant.zFt)+lifted,world.z]} onPointerDown={pointerDown} onPointerMove={onDragMove} onPointerUp={event=>{(event.target as Element).releasePointerCapture(event.pointerId);usePlannerStore.getState().endMove()}}>
     {viewMode==='planner'?<>
       <mesh position={[0,.14,0]} rotation={[-Math.PI/2,0,0]}><circleGeometry args={[radius,isPerennial?20:40]}/><meshStandardMaterial color={color} transparent opacity={winter?.38:.78} depthWrite={false}/></mesh>
       <mesh position={[0,.19,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[Math.max(radius-.18,.2),radius,40]}/><meshBasicMaterial color={selected?'#fff9dc':color} transparent opacity={selected?1:.65}/></mesh>

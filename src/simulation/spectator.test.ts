@@ -1,6 +1,17 @@
 import { describe,it,expect } from 'vitest'
 import { flightDelta } from './spectator'
+import { lookStick } from './walkNavigation'
 describe('spectator free flight',()=>{
+  it('has matching flight distance at common frame rates and no neutral aim drift',()=>{
+    for(const fps of [30,60,144]){
+      let x=0,y=0,z=0,yaw=0
+      for(let i=0;i<fps;i++){
+        const d=flightDelta(1,0,0,0,0,30/fps);x+=d.x;y+=d.y;z+=d.z
+        yaw+=lookStick(Math.sin(i)*.24)*2.1/fps
+      }
+      expect(x).toBeCloseTo(0);expect(y).toBeCloseTo(0);expect(z).toBeCloseTo(-30);expect(yaw).toBe(0)
+    }
+  })
   it('ascends vertically regardless of camera pitch or yaw',()=>{
     for(const pitch of [-1,0,1])for(const yaw of [-2,0,2]){
       for(const up of [-1,1]){const d=flightDelta(0,0,up,yaw,pitch,10);expect(d.x).toBeCloseTo(0);expect(d.z).toBeCloseTo(0);expect(d.y).toBe(up*10)}

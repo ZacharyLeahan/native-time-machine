@@ -20,5 +20,5 @@ export function MeasuredHouse(){
     return [roof,walls]
   },[])
   useEffect(()=>()=>{roof.dispose();walls.dispose()},[roof,walls])
-  return <group><mesh geometry={walls} castShadow receiveShadow><meshStandardMaterial color="#d8c9b4" side={DoubleSide} roughness={.9}/></mesh><mesh geometry={roof} castShadow receiveShadow><meshStandardMaterial color="#715548" side={DoubleSide} roughness={.85} flatShading/></mesh></group>
+  return <group userData={{climbable:'house'}}><mesh geometry={walls} castShadow receiveShadow><meshStandardMaterial color="#d8c9b4" side={DoubleSide} roughness={.9}/></mesh><mesh geometry={roof} castShadow receiveShadow><meshStandardMaterial color="#715548" side={DoubleSide} roughness={.85} flatShading/></mesh></group>
 }
